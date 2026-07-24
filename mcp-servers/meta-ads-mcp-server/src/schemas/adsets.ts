@@ -81,7 +81,7 @@ export const CreateAdSetInputSchema = z
     start_time: z.string().optional().describe("ISO 8601 datetime, e.g. '2026-08-01T00:00:00-0300'. Omit to start immediately on activation."),
     end_time: z.string().optional().describe("ISO 8601 datetime. Omit for an ad set that runs until paused."),
     promoted_object: z
-      .record(z.unknown())
+      .record(z.string(), z.unknown())
       .optional()
       .describe(
         "Required when optimization_goal is OFFSITE_CONVERSIONS or APP_INSTALLS, e.g. { pixel_id: '...', custom_event_type: 'PURCHASE' } or { application_id: '...', object_store_url: '...' }."

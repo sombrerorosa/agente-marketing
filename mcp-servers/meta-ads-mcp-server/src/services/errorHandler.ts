@@ -1,4 +1,3 @@
-import axios from "axios";
 import type { GraphApiErrorPayload } from "../types.js";
 
 // Meta error codes/subcodes that indicate throttling rather than a real
@@ -6,17 +5,23 @@ import type { GraphApiErrorPayload } from "../types.js";
 const RATE_LIMIT_CODES = new Set([4, 17, 32, 613]);
 const RATE_LIMIT_SUBCODES = new Set([2446079, 1487742]);
 
-export function extractGraphApiError(error: unknown): GraphApiErrorPayload | undefined {
-  if (axios.isAxiosError(error)) {
-    const payload = error.response?.data as { error?: GraphApiErrorPayload } | undefined;
-    return payload?.error;
+/** Error thrown by graphApiClient for any non-2xx Graph API response. */
+export class GraphApiError extends Error {
+  readonly status: number;
+  readonly payload?: GraphApiErrorPayload;
+
+  constructor(status: number, payload?: GraphApiErrorPayload) {
+    super(payload?.message || `Graph API request failed with HTTP status ${status}`);
+    this.name = "GraphApiError";
+    this.status = status;
+    this.payload = payload;
   }
-  return undefined;
 }
 
 export function isRateLimitError(error: unknown): boolean {
-  const gError = extractGraphApiError(error);
-  if (!gError) return axios.isAxiosError(error) && error.response?.status === 429;
+  if (!(error instanceof GraphApiError)) return false;
+  const gError = error.payload;
+  if (!gError) return error.status === 429;
   if (RATE_LIMIT_CODES.has(gError.code)) return true;
   if (gError.error_subcode && RATE_LIMIT_SUBCODES.has(gError.error_subcode)) return true;
   return false;
@@ -29,9 +34,12 @@ export function isRateLimitError(error: unknown): boolean {
  * an expired token and a missing permission can both come back as 400).
  */
 export function handleGraphApiError(error: unknown): string {
-  const gError = extractGraphApiError(error);
+  if (error instanceof GraphApiError) {
+    const gError = error.payload;
+    if (!gError) {
+      return `Error: Graph API request failed with HTTP status ${error.status}`;
+    }
 
-  if (gError) {
     const trace = gError.fbtrace_id ? ` (fbtrace_id: ${gError.fbtrace_id})` : "";
 
     if (gError.code === 190) {
@@ -52,13 +60,10 @@ export function handleGraphApiError(error: unknown): string {
     return `Error: Graph API request failed — ${gError.message} (code ${gError.code}${gError.error_subcode ? `, subcode ${gError.error_subcode}` : ""})${trace}`;
   }
 
-  if (axios.isAxiosError(error)) {
-    if (error.code === "ECONNABORTED") {
-      return "Error: Request to Graph API timed out. Try again.";
-    }
-    if (error.response) {
-      return `Error: Graph API request failed with HTTP status ${error.response.status}`;
-    }
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return "Error: Request to Graph API timed out. Try again.";
+  }
+  if (error instanceof TypeError) {
     return `Error: Network error contacting Graph API — ${error.message}`;
   }
 

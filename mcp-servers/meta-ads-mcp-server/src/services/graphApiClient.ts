@@ -1,7 +1,3 @@
-import axios, { AxiosInstance } from "axios";
-import FormData from "form-data";
-import { readFileSync } from "node:fs";
-import { basename } from "node:path";
 import {
   GRAPH_API_BASE_URL,
   MAX_PAGE_LIMIT,
@@ -9,9 +5,17 @@ import {
   RATE_LIMIT_MAX_RETRIES,
   USAGE_BACKOFF_THRESHOLD_PCT,
 } from "../constants.js";
-import { isRateLimitError } from "./errorHandler.js";
-import type { GraphApiListResponse, PagedResult } from "../types.js";
+import { GraphApiError, isRateLimitError } from "./errorHandler.js";
+import type { GraphApiErrorPayload, GraphApiListResponse, PagedResult } from "../types.js";
 
+const REQUEST_TIMEOUT_MS = 60000;
+
+/**
+ * Reads credentials from process.env. Shared by both entry points — the
+ * Node (stdio) entry point inherits process.env directly, and the
+ * Cloudflare Worker entry point (src/worker.ts) copies its env bindings
+ * into process.env at the top of each request before any tool runs.
+ */
 export function getAccessToken(): string {
   const token = process.env.META_ACCESS_TOKEN;
   if (!token) {
@@ -32,37 +36,32 @@ export function getAdAccountId(): string {
   return id.startsWith("act_") ? id : `act_${id}`;
 }
 
-const client: AxiosInstance = axios.create({
-  baseURL: GRAPH_API_BASE_URL,
-  timeout: 60000,
-});
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Meta reports quota consumption via response headers (values are JSON,
+ * Meta reports quota consumption via response headers (JSON values whose
  * shape varies by header) rather than a single rate-limit-remaining number.
  * We just look for the highest percentage figure and warn on stderr so the
  * operator can see it coming before a hard 429.
  */
-function warnIfNearingUsageLimit(headers: Record<string, unknown>): void {
+function warnIfNearingUsageLimit(headers: Headers): void {
   const usageHeaderNames = ["x-business-use-case-usage", "x-ad-account-usage", "x-app-usage"];
   for (const name of usageHeaderNames) {
-    const raw = headers[name];
+    const raw = headers.get(name);
     if (!raw) continue;
     try {
-      const parsed = JSON.parse(String(raw));
+      const parsed = JSON.parse(raw);
       const values: number[] = [];
       const collect = (node: unknown): void => {
-        if (node && typeof node === "object") {
+        if (Array.isArray(node)) {
+          for (const item of node) collect(item);
+        } else if (node && typeof node === "object") {
           for (const v of Object.values(node as Record<string, unknown>)) {
             if (typeof v === "number") values.push(v);
             else collect(v);
           }
-        } else if (Array.isArray(node)) {
-          for (const item of node) collect(item);
         }
       };
       collect(parsed);
@@ -79,8 +78,15 @@ function warnIfNearingUsageLimit(headers: Record<string, unknown>): void {
 interface RequestOptions {
   method?: "GET" | "POST" | "DELETE";
   params?: Record<string, unknown>;
-  data?: Record<string, unknown> | FormData;
-  headers?: Record<string, string>;
+}
+
+function buildUrl(endpoint: string, params: Record<string, unknown>): URL {
+  const url = new URL(`${GRAPH_API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`);
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    url.searchParams.set(key, String(value));
+  }
+  return url;
 }
 
 /**
@@ -88,26 +94,52 @@ interface RequestOptions {
  * Authorization header (not the access_token query param, so the token
  * never ends up in request-URL logs), and retries on throttling with
  * exponential backoff before giving up and letting the caller see the
- * Graph API error.
+ * Graph API error. Uses the standard Fetch API so it runs unmodified on
+ * both Node 18+ and the Cloudflare Workers runtime.
  */
 export async function graphRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", params = {}, data, headers = {} } = options;
+  const { method = "GET", params = {} } = options;
   let attempt = 0;
 
+  // GET requests carry params in the query string. POST/DELETE send them as
+  // a form-encoded body instead — several payloads here (targeting,
+  // object_story_spec, special_ad_categories) are JSON blobs that could
+  // otherwise push the URL past practical length limits.
+  const isBodyMethod = method === "POST" || method === "DELETE";
+  const url = isBodyMethod ? buildUrl(endpoint, {}) : buildUrl(endpoint, params);
+  const requestBody = isBodyMethod
+    ? new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null).map(([k, v]) => [k, String(v)])))
+    : undefined;
+
   while (true) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
     try {
-      const response = await client.request<T>({
-        url: endpoint,
+      const response = await fetch(url, {
         method,
-        params,
-        data,
+        signal: controller.signal,
         headers: {
           Authorization: `Bearer ${getAccessToken()}`,
-          ...headers,
+          ...(requestBody ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
         },
+        ...(requestBody ? { body: requestBody.toString() } : {}),
       });
-      warnIfNearingUsageLimit(response.headers as Record<string, unknown>);
-      return response.data;
+
+      warnIfNearingUsageLimit(response.headers);
+
+      if (!response.ok) {
+        let payload: GraphApiErrorPayload | undefined;
+        try {
+          const body = (await response.json()) as { error?: GraphApiErrorPayload };
+          payload = body?.error;
+        } catch {
+          // Response body wasn't JSON; surface the bare status instead.
+        }
+        throw new GraphApiError(response.status, payload);
+      }
+
+      return (await response.json()) as T;
     } catch (error) {
       if (isRateLimitError(error) && attempt < RATE_LIMIT_MAX_RETRIES) {
         const delay = RATE_LIMIT_BASE_DELAY_MS * 2 ** attempt;
@@ -119,6 +151,8 @@ export async function graphRequest<T>(endpoint: string, options: RequestOptions 
         continue;
       }
       throw error;
+    } finally {
+      clearTimeout(timeout);
     }
   }
 }
@@ -154,27 +188,4 @@ export async function listPaged<T>(
     has_more: lastPageHadNext,
     ...(lastPageHadNext ? { next_cursor: after } : {}),
   };
-}
-
-/**
- * Uploads a local file (adimages/advideos) as multipart form data. Prefer
- * `uploadMediaFromUrl` when the asset is already reachable over HTTPS —
- * Meta fetches it server-side and this avoids reading the file into memory.
- */
-export async function uploadMediaFile<T>(
-  endpoint: string,
-  filePath: string,
-  fileFieldName: string,
-  extraFields: Record<string, string> = {}
-): Promise<T> {
-  const form = new FormData();
-  form.append(fileFieldName, readFileSync(filePath), basename(filePath));
-  for (const [key, value] of Object.entries(extraFields)) {
-    form.append(key, value);
-  }
-  return graphRequest<T>(endpoint, {
-    method: "POST",
-    data: form,
-    headers: form.getHeaders(),
-  });
 }

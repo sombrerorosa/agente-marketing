@@ -4,9 +4,21 @@ MCP server for the Meta Marketing API (Facebook/Instagram Ads): campaigns, ad
 sets, ads, creatives, audiences, and insights reporting for a single ad
 account.
 
-## Setup
+Two ways to run it, same tool logic underneath:
 
-### 1. Business Manager access
+- **`src/index.ts`** — stdio entry point, for a local MCP client (Claude
+  Desktop, a CLI, etc.) that launches the server as a subprocess.
+- **`src/worker.ts`** — Cloudflare Workers entry point (Streamable HTTP), for
+  a hosted deployment reachable over HTTPS — no local install needed. This is
+  the recommended path if you don't run an MCP client locally.
+
+Media uploads (`meta_ads_upload_image` / `meta_ads_upload_video`) only accept
+public HTTPS URLs, not local file paths — this keeps the tool logic identical
+on both entry points (the Worker has no local filesystem) and matches how
+Meta recommends uploading anyway (it fetches the URL server-side). Point it at
+a hosted export from Canva, Higgsfield, or wherever the creative was produced.
+
+## 1. Business Manager access
 
 This server authenticates as a **Business Manager System User**, not via
 interactive OAuth login — it's meant to run unattended.
@@ -22,34 +34,23 @@ interactive OAuth login — it's meant to run unattended.
    `pages_read_engagement`, `read_insights`. Set expiration to **Never**.
 5. Verify it: `curl "https://graph.facebook.com/v21.0/act_<AD_ACCOUNT_ID>?fields=name&access_token=<TOKEN>"`
 
-### 2. Environment variables
+**Never commit real values for `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_ID`
+anywhere in this repo** (README included — it's version-controlled and
+visible to anyone with repo access). Secrets belong only in your local
+`.env` / `.dev.vars` (both gitignored) or in your deployment platform's own
+secret store. If a real token ever ends up in a commit, treat it as
+compromised and regenerate it in Business Manager immediately — removing it
+in a later commit does not remove it from git history.
 
-Copy `.env.example` to `.env` (or set these in whatever process manager
-launches the server):
-
-- `META_ACCESS_TOKEN` — the System User token from step 1
-- `META_AD_ACCOUNT_ID` — with or without the `act_` prefix
-- `GRAPH_API_VERSION` — optional, defaults to `v21.0`
-
-### 3. Install and build
+## 2a. Run locally (stdio)
 
 ```bash
 npm install
 npm run build
 ```
 
-### 4. Register with an MCP client
-
-**Never commit real values for `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_ID` to
-this file or anywhere else in the repo** — this README is version-controlled
-and public to anyone with repo access; secrets belong only in your local
-`.env` (already gitignored) or in your MCP client's own config file, which
-should itself be kept out of git. If a real token ever ends up in a commit,
-treat it as compromised and regenerate it in Business Manager immediately —
-removing it in a later commit does not remove it from git history.
-
-Example for a client that reads a JSON config of MCP servers (adjust to your
-client's format):
+Copy `.env.example` to `.env` and fill in `META_ACCESS_TOKEN` /
+`META_AD_ACCOUNT_ID`, then register it with your MCP client:
 
 ```json
 {
@@ -66,6 +67,36 @@ client's format):
 }
 ```
 
+## 2b. Deploy to Cloudflare Workers (no install needed)
+
+This path uses Cloudflare's dashboard to connect this GitHub repo directly —
+no CLI, no local Node install. It redeploys automatically on every push.
+
+1. Go to **dash.cloudflare.com → Workers & Pages → Create → Connect to Git**.
+2. Pick this repository and set the **root directory** to
+   `mcp-servers/meta-ads-mcp-server`.
+3. Build settings: Cloudflare auto-detects `wrangler.toml` — no build command
+   needed (Wrangler bundles `src/worker.ts` directly).
+4. Before the first deploy (or right after, then redeploy), go to the
+   Worker's **Settings → Variables and Secrets** and add, as **Secrets**
+   (encrypted, not plain vars):
+   - `META_ACCESS_TOKEN`
+   - `META_AD_ACCOUNT_ID`
+5. Deploy. Cloudflare gives you a URL like
+   `https://meta-ads-mcp-server.<your-subdomain>.workers.dev`. The MCP
+   endpoint is that URL + `/mcp`.
+6. Add it as a custom connector wherever you want to use it (e.g. claude.ai
+   → Settings → Connectors → Add custom connector), pointing at the `/mcp`
+   URL.
+
+To test the bundle locally without deploying (no Cloudflare account/network
+needed — this only runs esbuild):
+
+```bash
+npm install
+npx wrangler deploy --dry-run --outdir /tmp/out
+```
+
 ## Tools
 
 | Tool | Description |
@@ -73,7 +104,7 @@ client's format):
 | `meta_ads_list_campaigns` / `get` / `create` / `update` / `delete` | Campaign CRUD |
 | `meta_ads_list_adsets` / `get` / `create` / `update` / `delete` | Ad set CRUD (targeting, budget, optimization goal) |
 | `meta_ads_list_ads` / `get` / `create` / `update` / `delete` | Ad CRUD (links an ad set to a creative) |
-| `meta_ads_upload_image` / `meta_ads_upload_video` | Upload media, returns `image_hash` / `video_id` |
+| `meta_ads_upload_image` / `meta_ads_upload_video` | Upload media from a public URL, returns `image_hash` / `video_id` |
 | `meta_ads_create_ad_creative` / `list` / `get` | Build the copy + media + destination + CTA used by an ad |
 | `meta_ads_create_custom_audience` / `meta_ads_create_lookalike_audience` / `list_audiences` / `delete_audience` | Audience management |
 | `meta_ads_get_insights` | Performance metrics (spend, CTR, CPA, ROAS, etc.) by campaign/ad set/ad and date range |
@@ -88,6 +119,8 @@ All write/update/delete tools default new campaigns and ad sets to
   empty audience shell. Uploading member lists (emails/phones) requires
   SHA-256 hashing PII before sending it to Meta — deliberately left out of
   this version; ask for it explicitly if needed.
+- **URL-only media upload**: no local file upload, only public HTTPS URLs
+  (see the note at the top of this file for why).
 - **Large video uploads**: `meta_ads_upload_video` uses a direct (non-chunked)
   upload. It works well for typical ad-length videos but isn't the resumable
   upload API Meta recommends for very large files (~1GB+).
@@ -98,7 +131,9 @@ All write/update/delete tools default new campaigns and ad sets to
 ## Development
 
 ```bash
-npm run dev     # watch mode
-npm run build   # compile to dist/
-npx @modelcontextprotocol/inspector node dist/index.js   # interactive testing
+npm run dev              # watch mode, stdio entry point
+npm run build             # compile src/index.ts (Node) to dist/
+npm run typecheck:worker  # typecheck src/worker.ts against Workers types
+npx @modelcontextprotocol/inspector node dist/index.js   # interactive testing, stdio
+npm run worker:dev        # local Cloudflare Worker dev server (wrangler dev)
 ```

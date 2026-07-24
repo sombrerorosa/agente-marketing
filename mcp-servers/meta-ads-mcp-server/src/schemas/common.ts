@@ -7,7 +7,7 @@ export enum ResponseFormat {
 }
 
 export const responseFormatField = z
-  .nativeEnum(ResponseFormat)
+  .enum(ResponseFormat)
   .default(ResponseFormat.MARKDOWN)
   .describe("Output format: 'markdown' for human-readable or 'json' for machine-readable");
 

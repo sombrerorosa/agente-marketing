@@ -1,0 +1,9 @@
+name = "meta-ads-mcp-server"
+main = "src/worker.ts"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+# META_ACCESS_TOKEN and META_AD_ACCOUNT_ID are NOT set here — configure them
+# as Secrets in the Cloudflare dashboard (Workers & Pages > this Worker >
+# Settings > Variables and Secrets), or via `wrangler secret put <NAME>`.
+# Never commit real values for them to this file or anywhere in the repo.

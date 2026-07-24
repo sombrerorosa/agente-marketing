@@ -18,8 +18,7 @@ export const CallToActionEnum = z.enum([
 
 export const UploadImageInputSchema = z
   .object({
-    file_path: z.string().optional().describe("Absolute local file path to upload. Provide exactly one of file_path or image_url."),
-    image_url: z.string().url().optional().describe("Publicly reachable HTTPS URL; Meta fetches it server-side, avoiding a local upload."),
+    image_url: z.string().url().describe("Publicly reachable HTTPS URL — Meta fetches it server-side. Use a hosted asset (e.g. from Canva/Higgsfield output) rather than a local file."),
     response_format: responseFormatField,
   })
   .strict();
@@ -27,8 +26,7 @@ export type UploadImageInput = z.infer<typeof UploadImageInputSchema>;
 
 export const UploadVideoInputSchema = z
   .object({
-    file_path: z.string().optional().describe("Absolute local file path to upload. Provide exactly one of file_path or video_url."),
-    video_url: z.string().url().optional().describe("Publicly reachable HTTPS URL; Meta fetches it server-side."),
+    video_url: z.string().url().describe("Publicly reachable HTTPS URL — Meta fetches it server-side."),
     name: z.string().optional().describe("Display name for the video asset in Meta's Ads Manager library."),
     response_format: responseFormatField,
   })

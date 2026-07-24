@@ -14,7 +14,7 @@ import {
 } from "../schemas/creatives.js";
 import { handleGraphApiError } from "../services/errorHandler.js";
 import { buildResponse, errorResponse, pagedJson } from "../services/formatting.js";
-import { getAdAccountId, graphRequest, listPaged, uploadMediaFile } from "../services/graphApiClient.js";
+import { getAdAccountId, graphRequest, listPaged } from "../services/graphApiClient.js";
 import type { AdCreative } from "../types.js";
 
 const CREATIVE_FIELDS = "id,name,object_story_spec,thumbnail_url,status";
@@ -28,39 +28,28 @@ export function registerCreativeTools(server: McpServer): void {
     "meta_ads_upload_image",
     {
       title: "Upload Meta Ads Image",
-      description: `Upload an image to the ad account's image library, returning an image_hash for use in meta_ads_create_ad_creative.
+      description: `Upload an image to the ad account's image library from a public URL, returning an image_hash for use in meta_ads_create_ad_creative.
 
 Args:
-  - file_path (string, optional): absolute local path to a JPG/PNG file
-  - image_url (string, optional): publicly reachable HTTPS URL — Meta fetches it directly, no local read needed
+  - image_url (string): required, publicly reachable HTTPS URL — Meta fetches it directly (e.g. a Canva/Higgsfield export URL)
   - response_format ('markdown'|'json', default markdown)
-  Provide exactly one of file_path or image_url.
 
 Returns { hash, url } — pass hash as image_hash to meta_ads_create_ad_creative.
 
 Don't use when: the asset is a video — use meta_ads_upload_video instead.
 
 Error Handling:
-  - "did not return an image hash" if the file isn't a supported format (JPG/PNG) or is corrupted`,
+  - "did not return an image hash" if the URL isn't a supported format (JPG/PNG) or isn't reachable`,
       inputSchema: UploadImageInputSchema,
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
     async (params: UploadImageInput) => {
       try {
-        if (!params.file_path && !params.image_url) {
-          return errorResponse("Error: Provide either file_path or image_url.");
-        }
-        if (params.file_path && params.image_url) {
-          return errorResponse("Error: Provide only one of file_path or image_url, not both.");
-        }
-
         const endpoint = `/${getAdAccountId()}/adimages`;
-        const response = params.image_url
-          ? await graphRequest<{ images: Record<string, { hash: string; url: string }> }>(endpoint, {
-              method: "POST",
-              params: { url: params.image_url },
-            })
-          : await uploadMediaFile<{ images: Record<string, { hash: string; url: string }> }>(endpoint, params.file_path!, "source");
+        const response = await graphRequest<{ images: Record<string, { hash: string; url: string }> }>(endpoint, {
+          method: "POST",
+          params: { url: params.image_url },
+        });
 
         const entries = Object.entries(response.images ?? {});
         if (!entries.length) {
@@ -82,14 +71,12 @@ Error Handling:
     "meta_ads_upload_video",
     {
       title: "Upload Meta Ads Video",
-      description: `Upload a video to the ad account's video library, returning a video_id for use in meta_ads_create_ad_creative.
+      description: `Upload a video to the ad account's video library from a public URL, returning a video_id for use in meta_ads_create_ad_creative.
 
 Args:
-  - file_path (string, optional): absolute local path to an MP4/MOV file
-  - video_url (string, optional): publicly reachable HTTPS URL — Meta fetches it directly
+  - video_url (string): required, publicly reachable HTTPS URL — Meta fetches it directly (e.g. a Canva/Higgsfield export URL)
   - name (string, optional): display name in Meta's video library
   - response_format ('markdown'|'json', default markdown)
-  Provide exactly one of file_path or video_url.
 
 Returns { video_id }. Meta processes video asynchronously — it is usually ready within a couple of minutes, but meta_ads_create_ad_creative may fail with a transient error if you try immediately after upload for a large file; retry after a short wait.
 
@@ -99,18 +86,12 @@ Don't use when: the asset is a still image — use meta_ads_upload_image instead
     },
     async (params: UploadVideoInput) => {
       try {
-        if (!params.file_path && !params.video_url) {
-          return errorResponse("Error: Provide either file_path or video_url.");
-        }
-        if (params.file_path && params.video_url) {
-          return errorResponse("Error: Provide only one of file_path or video_url, not both.");
-        }
-
         const endpoint = `/${getAdAccountId()}/advideos`;
         const titleField: Record<string, string> = params.name ? { title: params.name } : {};
-        const response = params.video_url
-          ? await graphRequest<{ id: string }>(endpoint, { method: "POST", params: { file_url: params.video_url, ...titleField } })
-          : await uploadMediaFile<{ id: string }>(endpoint, params.file_path!, "source", titleField);
+        const response = await graphRequest<{ id: string }>(endpoint, {
+          method: "POST",
+          params: { file_url: params.video_url, ...titleField },
+        });
 
         return buildResponse(
           { video_id: response.id },
