@@ -50,8 +50,8 @@ client's format):
       "command": "node",
       "args": ["/absolute/path/to/meta-ads-mcp-server/dist/index.js"],
       "env": {
-        "META_ACCESS_TOKEN": "...",
-        "META_AD_ACCOUNT_ID": "..."
+        "META_ACCESS_TOKEN": "EAAL9yN7suFEBSBqZCE38NZBzM78uhkWPutZA2ZCvixN5EFTnB3nibQa7YclF9VEtu0bayCU5o1zQglSaOVnvh5onkzm4WZCbkRSwDpTr7vZCtsJAwdZAyTDZCA7s5lox0JRKHIfE5fz9yc8OYdsZAP5GGgzcvdVEjjK5RlkDdZBjLGaMuRxmZAUrqDoxAsW6YYt9XDAsQZDZD",
+        "META_AD_ACCOUNT_ID": "1004877592162559"
       }
     }
   }
