@@ -40,6 +40,14 @@ npm run build
 
 ### 4. Register with an MCP client
 
+**Never commit real values for `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_ID` to
+this file or anywhere else in the repo** — this README is version-controlled
+and public to anyone with repo access; secrets belong only in your local
+`.env` (already gitignored) or in your MCP client's own config file, which
+should itself be kept out of git. If a real token ever ends up in a commit,
+treat it as compromised and regenerate it in Business Manager immediately —
+removing it in a later commit does not remove it from git history.
+
 Example for a client that reads a JSON config of MCP servers (adjust to your
 client's format):
 
@@ -50,8 +58,8 @@ client's format):
       "command": "node",
       "args": ["/absolute/path/to/meta-ads-mcp-server/dist/index.js"],
       "env": {
-        "META_ACCESS_TOKEN": "EAAL9yN7suFEBSBqZCE38NZBzM78uhkWPutZA2ZCvixN5EFTnB3nibQa7YclF9VEtu0bayCU5o1zQglSaOVnvh5onkzm4WZCbkRSwDpTr7vZCtsJAwdZAyTDZCA7s5lox0JRKHIfE5fz9yc8OYdsZAP5GGgzcvdVEjjK5RlkDdZBjLGaMuRxmZAUrqDoxAsW6YYt9XDAsQZDZD",
-        "META_AD_ACCOUNT_ID": "1004877592162559"
+        "META_ACCESS_TOKEN": "...",
+        "META_AD_ACCOUNT_ID": "..."
       }
     }
   }
