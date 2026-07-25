@@ -130,6 +130,7 @@ Args:
   - objective (string): required, e.g. OUTCOME_TRAFFIC, OUTCOME_SALES, OUTCOME_LEADS, OUTCOME_ENGAGEMENT, OUTCOME_AWARENESS, OUTCOME_APP_PROMOTION
   - status ('ACTIVE'|'PAUSED', default PAUSED)
   - daily_budget_cents / lifetime_budget_cents (number, optional): campaign-level budget in minor currency unit (e.g. cents for USD). Omit both to set budgets per ad set instead.
+  - is_adset_budget_sharing_enabled (boolean): required when daily_budget_cents or lifetime_budget_cents is set — whether ad sets under this campaign can flexibly share the campaign budget
   - buying_type ('AUCTION'|'RESERVED', default AUCTION)
   - special_ad_categories (string[], default ["NONE"]): must reflect HOUSING/EMPLOYMENT/CREDIT/ISSUES_ELECTIONS_POLITICS if applicable — Meta restricts targeting for these.
   - response_format ('markdown'|'json', default markdown)
@@ -148,6 +149,12 @@ Error Handling:
         if (params.daily_budget_cents && params.lifetime_budget_cents) {
           return errorResponse("Error: Provide only one of daily_budget_cents or lifetime_budget_cents, not both.");
         }
+        const hasCampaignBudget = Boolean(params.daily_budget_cents || params.lifetime_budget_cents);
+        if (hasCampaignBudget && params.is_adset_budget_sharing_enabled === undefined) {
+          return errorResponse(
+            "Error: is_adset_budget_sharing_enabled is required when daily_budget_cents or lifetime_budget_cents is set. Pass true or false."
+          );
+        }
         const created = await graphRequest<{ id: string }>(`/${getAdAccountId()}/campaigns`, {
           method: "POST",
           params: {
@@ -158,6 +165,7 @@ Error Handling:
             special_ad_categories: JSON.stringify(params.special_ad_categories),
             ...(params.daily_budget_cents ? { daily_budget: String(params.daily_budget_cents) } : {}),
             ...(params.lifetime_budget_cents ? { lifetime_budget: String(params.lifetime_budget_cents) } : {}),
+            ...(hasCampaignBudget ? { is_adset_budget_sharing_enabled: String(params.is_adset_budget_sharing_enabled) } : {}),
           },
         });
         const payload = { id: created.id, name: params.name, objective: params.objective, status: params.status };

@@ -58,6 +58,12 @@ export const CreateCampaignInputSchema = z
       .positive()
       .optional()
       .describe("Campaign-level lifetime budget in minor unit (cents). Do not combine with daily_budget_cents."),
+    is_adset_budget_sharing_enabled: z
+      .boolean()
+      .optional()
+      .describe(
+        "Required by Meta when daily_budget_cents or lifetime_budget_cents is set (Advantage campaign budget / CBO). Controls whether ad sets under this campaign can flexibly share the campaign-level budget. Not applicable, and should be omitted, when budgets are set per ad set instead."
+      ),
     buying_type: z.enum(["AUCTION", "RESERVED"]).default("AUCTION"),
     special_ad_categories: z
       .array(z.enum(["NONE", "EMPLOYMENT", "HOUSING", "CREDIT", "ISSUES_ELECTIONS_POLITICS"]))
