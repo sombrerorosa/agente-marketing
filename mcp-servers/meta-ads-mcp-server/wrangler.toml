@@ -3,6 +3,21 @@ main = "src/worker.ts"
 compatibility_date = "2026-07-01"
 compatibility_flags = ["nodejs_compat"]
 
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
+
 # META_ACCESS_TOKEN and META_AD_ACCOUNT_ID are NOT set here — configure them
 # as Secrets in the Cloudflare dashboard (Workers & Pages > this Worker >
 # Settings > Variables and Secrets), or via `wrangler secret put <NAME>`.
