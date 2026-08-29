@@ -1,0 +1,23 @@
+{
+  "name": "meta-ads-bigquery-sync",
+  "version": "1.0.0",
+  "description": "Syncs Meta Ads insights into BigQuery (daily via Cloudflare Cron Trigger, plus a one-off historical backfill script) so Looker Studio can report on them",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "backfill": "tsx scripts/backfill.ts",
+    "typecheck:worker": "tsc -p tsconfig.worker.json",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260724.1",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "wrangler": "^4.114.0"
+  }
+}

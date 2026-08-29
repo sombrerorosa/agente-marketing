@@ -1,0 +1,30 @@
+name = "meta-ads-bigquery-sync"
+main = "src/worker.ts"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Daily at 06:00 UTC — syncs "yesterday" (UTC) so Meta's own data for the
+# full day has settled before we read it.
+[triggers]
+crons = ["0 6 * * *"]
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+# Secrets — set via `wrangler secret put <NAME>` or the Cloudflare dashboard
+# (Worker > Settings > Variables and Secrets). Never put real values here:
+#   META_ACCESS_TOKEN     — same System User token as meta-ads-mcp-server
+#   META_AD_ACCOUNT_ID    — same ad account id as meta-ads-mcp-server
+#   GCP_PROJECT_ID        — the GCP project holding the BigQuery dataset
+#   GCP_CLIENT_EMAIL      — the Service Account's client_email
+#   GCP_PRIVATE_KEY       — the Service Account's private_key (PEM, with \n escapes)
+#   BQ_DATASET            — optional, defaults to "meta_ads"
+#   BQ_TABLE              — optional, defaults to "insights_daily"
+#   SYNC_SHARED_SECRET    — optional, required by the manual /sync endpoint if set
