@@ -15,9 +15,10 @@ function findAction(actions: RawInsightRow["actions"], needle: string): number |
   return match ? toNumber(match.value) : null;
 }
 
-function toInsightsRow(raw: RawInsightRow): InsightsRow {
+function toInsightsRow(raw: RawInsightRow, accountId: string): InsightsRow {
   return {
     date: raw.date_start,
+    account_id: accountId,
     campaign_id: raw.campaign_id ?? null,
     campaign_name: raw.campaign_name ?? null,
     adset_id: raw.adset_id ?? null,
@@ -44,6 +45,7 @@ function toInsightsRow(raw: RawInsightRow): InsightsRow {
 // fills in via its own DEFAULT).
 const STRUCT_FIELDS: Array<{ name: keyof InsightsRow; type: string }> = [
   { name: "date", type: "DATE" },
+  { name: "account_id", type: "STRING" },
   { name: "campaign_id", type: "STRING" },
   { name: "campaign_name", type: "STRING" },
   { name: "adset_id", type: "STRING" },
@@ -95,25 +97,28 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 /**
- * Syncs Meta Ads insights for [since, until] (inclusive, YYYY-MM-DD) into
- * BigQuery. Deletes any existing rows in that date range first, so
- * re-running the same window — the daily cron firing twice, or re-running a
- * backfill chunk — never duplicates rows.
+ * Syncs one ad account's Meta Ads insights for [since, until] (inclusive,
+ * YYYY-MM-DD) into BigQuery. Deletes any existing rows for that
+ * account+date range first, so re-running the same window — the daily cron
+ * firing twice, or re-running a backfill chunk — never duplicates rows, and
+ * never touches other accounts' rows on the same dates.
  */
 export async function syncRange(
   env: BigQueryEnv,
+  accountId: string,
   since: string,
   until: string,
   opts: { dryRun?: boolean } = {}
 ): Promise<{ rows: number }> {
-  const rawRows = await fetchDailyInsights(since, until);
-  const rows = rawRows.map(toInsightsRow);
+  const rawRows = await fetchDailyInsights(accountId, since, until);
+  const rows = rawRows.map((raw) => toInsightsRow(raw, accountId));
 
   if (opts.dryRun) return { rows: rows.length };
 
   const table = `\`${env.GCP_PROJECT_ID}.${BQ_DATASET}.${BQ_TABLE}\``;
 
-  await runQuery(env, `DELETE FROM ${table} WHERE date BETWEEN @since AND @until`, [
+  await runQuery(env, `DELETE FROM ${table} WHERE account_id = @account_id AND date BETWEEN @since AND @until`, [
+    { name: "account_id", parameterType: { type: "STRING" }, parameterValue: { value: accountId } },
     { name: "since", parameterType: { type: "DATE" }, parameterValue: { value: since } },
     { name: "until", parameterType: { type: "DATE" }, parameterValue: { value: until } },
   ]);

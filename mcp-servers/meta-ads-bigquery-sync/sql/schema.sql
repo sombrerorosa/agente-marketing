@@ -2,12 +2,14 @@
 -- after creating the `meta_ads` dataset. Replace PROJECT_ID with your GCP
 -- project id.
 --
--- Ad-level granularity (one row per ad per day) is the finest Meta reports
--- at. Campaign/adset totals are rollups (GROUP BY / SUM in Looker Studio or
--- a view) instead of separate stored rows, so spend is never double-counted
--- across levels.
+-- Ad-level granularity (one row per ad per day, per ad account) is the
+-- finest Meta reports at. Campaign/adset totals are rollups (GROUP BY / SUM
+-- in Looker Studio or a view) instead of separate stored rows, so spend is
+-- never double-counted across levels. account_id lets multiple ad accounts
+-- (multiple clients) share this one table without mixing their data.
 CREATE TABLE IF NOT EXISTS `PROJECT_ID.meta_ads.insights_daily` (
   date DATE NOT NULL,
+  account_id STRING NOT NULL,
   campaign_id STRING,
   campaign_name STRING,
   adset_id STRING,
@@ -30,4 +32,4 @@ CREATE TABLE IF NOT EXISTS `PROJECT_ID.meta_ads.insights_daily` (
   synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP()
 )
 PARTITION BY date
-CLUSTER BY campaign_id, adset_id;
+CLUSTER BY account_id, campaign_id;

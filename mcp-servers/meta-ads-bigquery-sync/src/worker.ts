@@ -4,11 +4,13 @@
  * smoke-testing or resyncing a single day/range on demand.
  */
 
+import { getAdAccountIds } from "./metaClient.js";
 import { syncRange } from "./sync.js";
 
 interface Env {
   META_ACCESS_TOKEN: string;
-  META_AD_ACCOUNT_ID: string;
+  META_AD_ACCOUNT_IDS?: string;
+  META_AD_ACCOUNT_ID?: string;
   GRAPH_API_VERSION?: string;
   GCP_PROJECT_ID: string;
   GCP_CLIENT_EMAIL: string;
@@ -18,10 +20,12 @@ interface Env {
   SYNC_SHARED_SECRET?: string;
 }
 
-const REQUIRED_KEYS: Array<keyof Env> = ["META_ACCESS_TOKEN", "META_AD_ACCOUNT_ID", "GCP_PROJECT_ID", "GCP_CLIENT_EMAIL", "GCP_PRIVATE_KEY"];
+const REQUIRED_KEYS: Array<keyof Env> = ["META_ACCESS_TOKEN", "GCP_PROJECT_ID", "GCP_CLIENT_EMAIL", "GCP_PRIVATE_KEY"];
 
 function missingEnvKeys(env: Env): string[] {
-  return REQUIRED_KEYS.filter((key) => !env[key]);
+  const missing = REQUIRED_KEYS.filter((key) => !env[key]);
+  if (!env.META_AD_ACCOUNT_IDS && !env.META_AD_ACCOUNT_ID) missing.push("META_AD_ACCOUNT_IDS");
+  return missing;
 }
 
 // The shared tool logic reads credentials from process.env for parity with
@@ -29,7 +33,8 @@ function missingEnvKeys(env: Env): string[] {
 // explicitly rather than relying on nodejs_compat auto-population.
 function bridgeEnv(env: Env): void {
   process.env.META_ACCESS_TOKEN = env.META_ACCESS_TOKEN;
-  process.env.META_AD_ACCOUNT_ID = env.META_AD_ACCOUNT_ID;
+  if (env.META_AD_ACCOUNT_IDS) process.env.META_AD_ACCOUNT_IDS = env.META_AD_ACCOUNT_IDS;
+  if (env.META_AD_ACCOUNT_ID) process.env.META_AD_ACCOUNT_ID = env.META_AD_ACCOUNT_ID;
   if (env.GRAPH_API_VERSION) process.env.GRAPH_API_VERSION = env.GRAPH_API_VERSION;
   if (env.BQ_DATASET) process.env.BQ_DATASET = env.BQ_DATASET;
   if (env.BQ_TABLE) process.env.BQ_TABLE = env.BQ_TABLE;
@@ -51,10 +56,15 @@ export default {
 
     bridgeEnv(env);
     const date = yesterday();
+    const accountIds = getAdAccountIds();
     ctx.waitUntil(
-      syncRange(env, date, date)
-        .then(({ rows }) => console.log(`meta-ads-bigquery-sync: synced ${rows} rows for ${date}`))
-        .catch((error) => console.error(`meta-ads-bigquery-sync: sync failed for ${date}`, error))
+      Promise.all(
+        accountIds.map((accountId) =>
+          syncRange(env, accountId, date, date)
+            .then(({ rows }) => console.log(`meta-ads-bigquery-sync: synced ${rows} rows for ${accountId} on ${date}`))
+            .catch((error) => console.error(`meta-ads-bigquery-sync: sync failed for ${accountId} on ${date}`, error))
+        )
+      ).then(() => undefined)
     );
   },
 
@@ -77,11 +87,14 @@ export default {
 
     const date = url.searchParams.get("date") ?? yesterday();
     const until = url.searchParams.get("until") ?? date;
+    const onlyAccount = url.searchParams.get("account");
 
     bridgeEnv(env);
     try {
-      const { rows } = await syncRange(env, date, until);
-      return new Response(`Synced ${rows} rows for ${date}..${until}`, { status: 200 });
+      const accountIds = onlyAccount ? [onlyAccount.startsWith("act_") ? onlyAccount : `act_${onlyAccount}`] : getAdAccountIds();
+      const results = await Promise.all(accountIds.map((accountId) => syncRange(env, accountId, date, until)));
+      const summary = accountIds.map((accountId, i) => `${accountId}: ${results[i].rows} rows`).join(", ");
+      return new Response(`Synced ${date}..${until} — ${summary}`, { status: 200 });
     } catch (error) {
       return new Response(`Sync failed: ${error instanceof Error ? error.message : String(error)}`, { status: 500 });
     }

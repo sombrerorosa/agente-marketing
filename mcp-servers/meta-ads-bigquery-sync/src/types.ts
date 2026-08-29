@@ -21,6 +21,7 @@ export interface RawInsightRow {
 
 export interface InsightsRow {
   date: string;
+  account_id: string;
   campaign_id: string | null;
   campaign_name: string | null;
   adset_id: string | null;

@@ -21,7 +21,7 @@ invocation_logs = true
 # Secrets — set via `wrangler secret put <NAME>` or the Cloudflare dashboard
 # (Worker > Settings > Variables and Secrets). Never put real values here:
 #   META_ACCESS_TOKEN     — same System User token as meta-ads-mcp-server
-#   META_AD_ACCOUNT_ID    — same ad account id as meta-ads-mcp-server
+#   META_AD_ACCOUNT_IDS   — one or more ad account ids, comma-separated
 #   GCP_PROJECT_ID        — the GCP project holding the BigQuery dataset
 #   GCP_CLIENT_EMAIL      — the Service Account's client_email
 #   GCP_PRIVATE_KEY       — the Service Account's private_key (PEM, with \n escapes)

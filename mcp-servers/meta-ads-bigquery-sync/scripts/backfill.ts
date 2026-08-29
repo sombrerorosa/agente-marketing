@@ -8,6 +8,7 @@
  *   npm run backfill -- --since 2023-01-01 --until 2026-08-28
  *   npm run backfill -- --since 2023-01-01 --dry-run   # Meta only, no BigQuery writes
  */
+import { getAdAccountIds } from "../src/metaClient.js";
 import { syncRange } from "../src/sync.js";
 import type { BigQueryEnv } from "../src/types.js";
 
@@ -57,17 +58,21 @@ function sleep(ms: number): Promise<void> {
 async function main(): Promise<void> {
   const { since, until, dryRun } = parseArgs();
 
-  const requiredAlways = ["META_ACCESS_TOKEN", "META_AD_ACCOUNT_ID"];
+  const requiredAlways = ["META_ACCESS_TOKEN"];
   const requiredForWrite = ["GCP_PROJECT_ID", "GCP_CLIENT_EMAIL", "GCP_PRIVATE_KEY"];
   const required = dryRun ? requiredAlways : [...requiredAlways, ...requiredForWrite];
   const missing = required.filter((key) => !process.env[key]);
+  if (!process.env.META_AD_ACCOUNT_IDS && !process.env.META_AD_ACCOUNT_ID) missing.push("META_AD_ACCOUNT_IDS");
   if (missing.length) {
     console.error(`Missing required env var(s): ${missing.join(", ")}. Copy .env.example to .env, fill it in, then 'set -a; source .env; set +a' before running this script.`);
     process.exit(1);
   }
 
+  const accountIds = getAdAccountIds();
   const chunks = monthChunks(since, until);
-  console.log(`Backfilling ${chunks.length} month(s) from ${since} to ${until}${dryRun ? " (dry run — Meta only, no BigQuery writes)" : ""}`);
+  console.log(
+    `Backfilling ${accountIds.length} account(s) x ${chunks.length} month(s) from ${since} to ${until}${dryRun ? " (dry run — Meta only, no BigQuery writes)" : ""}`
+  );
 
   const env: BigQueryEnv = {
     GCP_PROJECT_ID: process.env.GCP_PROJECT_ID ?? "",
@@ -76,17 +81,19 @@ async function main(): Promise<void> {
   };
 
   let totalRows = 0;
-  for (const [chunkSince, chunkUntil] of chunks) {
-    try {
-      const { rows } = await syncRange(env, chunkSince, chunkUntil, { dryRun });
-      totalRows += rows;
-      console.log(`${dryRun ? "[dry run] would sync" : "Synced"} ${rows} rows for ${chunkSince}..${chunkUntil}`);
-    } catch (error) {
-      console.error(`Failed on ${chunkSince}..${chunkUntil}:`, error);
-      process.exit(1);
+  for (const accountId of accountIds) {
+    for (const [chunkSince, chunkUntil] of chunks) {
+      try {
+        const { rows } = await syncRange(env, accountId, chunkSince, chunkUntil, { dryRun });
+        totalRows += rows;
+        console.log(`${dryRun ? "[dry run] would sync" : "Synced"} ${rows} rows for ${accountId} ${chunkSince}..${chunkUntil}`);
+      } catch (error) {
+        console.error(`Failed on ${accountId} ${chunkSince}..${chunkUntil}:`, error);
+        process.exit(1);
+      }
+      // Be gentle with Meta's rate limits across many sequential month windows.
+      await sleep(1500);
     }
-    // Be gentle with Meta's rate limits across many sequential month windows.
-    await sleep(1500);
   }
 
   console.log(`Backfill complete. Total rows: ${totalRows}.`);

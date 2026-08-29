@@ -39,10 +39,19 @@ function getAccessToken(): string {
   return token;
 }
 
-function getAdAccountId(): string {
-  const id = process.env.META_AD_ACCOUNT_ID;
-  if (!id) throw new Error("META_AD_ACCOUNT_ID is not set.");
-  return id.startsWith("act_") ? id : `act_${id}`;
+/**
+ * Reads the ad account(s) to sync from META_AD_ACCOUNT_IDS (comma-separated,
+ * for multiple accounts) falling back to the single-account META_AD_ACCOUNT_ID
+ * for backwards compatibility. Each id is normalized with the "act_" prefix.
+ */
+export function getAdAccountIds(): string[] {
+  const raw = process.env.META_AD_ACCOUNT_IDS ?? process.env.META_AD_ACCOUNT_ID;
+  if (!raw) throw new Error("META_AD_ACCOUNT_IDS (or META_AD_ACCOUNT_ID) is not set.");
+  return raw
+    .split(",")
+    .map((id: string) => id.trim())
+    .filter((id: string) => id.length > 0)
+    .map((id: string) => (id.startsWith("act_") ? id : `act_${id}`));
 }
 
 async function graphRequest<T>(endpoint: string, params: Record<string, unknown>): Promise<T> {
@@ -88,12 +97,12 @@ async function graphRequest<T>(endpoint: string, params: Record<string, unknown>
  * names ride along on each ad row, so campaign/adset totals are rollups in
  * BigQuery rather than separate stored rows (avoids double-counting spend).
  */
-export async function fetchDailyInsights(since: string, until: string): Promise<RawInsightRow[]> {
+export async function fetchDailyInsights(accountId: string, since: string, until: string): Promise<RawInsightRow[]> {
   const rows: RawInsightRow[] = [];
   let after: string | undefined;
 
   while (true) {
-    const response = await graphRequest<GraphApiListResponse<RawInsightRow>>(`/${getAdAccountId()}/insights`, {
+    const response = await graphRequest<GraphApiListResponse<RawInsightRow>>(`/${accountId}/insights`, {
       level: "ad",
       time_increment: 1,
       time_range: JSON.stringify({ since, until }),
