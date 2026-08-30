@@ -1,7 +1,11 @@
 /**
  * Cloudflare Workers entry point. A Cron Trigger runs `scheduled()` daily to
- * sync "yesterday" (UTC); `fetch()` exposes a manual /sync endpoint for
- * smoke-testing or resyncing a single day/range on demand.
+ * re-sync a rolling trailing window (not just "yesterday") — since the sync
+ * is an idempotent DELETE+INSERT per date range, this makes a single failed
+ * run (expired token, Meta/BigQuery outage) self-heal on the next day's run
+ * instead of silently leaving that day's data missing forever. `fetch()`
+ * exposes a manual /sync endpoint for smoke-testing or resyncing any
+ * specific day/range on demand.
  */
 
 import { getAdAccountIds } from "./metaClient.js";
@@ -40,11 +44,20 @@ function bridgeEnv(env: Env): void {
   if (env.BQ_TABLE) process.env.BQ_TABLE = env.BQ_TABLE;
 }
 
-function yesterday(): string {
+function daysAgo(n: number): string {
   const d = new Date();
-  d.setUTCDate(d.getUTCDate() - 1);
+  d.setUTCDate(d.getUTCDate() - n);
   return d.toISOString().slice(0, 10);
 }
+
+function yesterday(): string {
+  return daysAgo(1);
+}
+
+// How many trailing days the daily cron re-syncs each run. Cheap to widen
+// (one extra Meta call + a few extra BigQuery rows per account) and it's
+// what lets a single failed run recover on its own the next day.
+const ROLLING_WINDOW_DAYS = 3;
 
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
@@ -55,14 +68,15 @@ export default {
     }
 
     bridgeEnv(env);
-    const date = yesterday();
+    const since = daysAgo(ROLLING_WINDOW_DAYS);
+    const until = yesterday();
     const accountIds = getAdAccountIds();
     ctx.waitUntil(
       Promise.all(
         accountIds.map((accountId) =>
-          syncRange(env, accountId, date, date)
-            .then(({ rows }) => console.log(`meta-ads-bigquery-sync: synced ${rows} rows for ${accountId} on ${date}`))
-            .catch((error) => console.error(`meta-ads-bigquery-sync: sync failed for ${accountId} on ${date}`, error))
+          syncRange(env, accountId, since, until)
+            .then(({ rows }) => console.log(`meta-ads-bigquery-sync: synced ${rows} rows for ${accountId} (${since}..${until})`))
+            .catch((error) => console.error(`meta-ads-bigquery-sync: sync failed for ${accountId} (${since}..${until})`, error))
         )
       ).then(() => undefined)
     );
