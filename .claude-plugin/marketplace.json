@@ -1,0 +1,15 @@
+{
+  "name": "agente-marketing",
+  "description": "Plugins de sombrerorosa para Claude: marketing, 3D y más.",
+  "owner": {
+    "name": "sombrerorosa"
+  },
+  "plugins": [
+    {
+      "name": "threejs",
+      "source": "./plugins/threejs",
+      "description": "Skills de Three.js para crear escenas 3D e interactivas.",
+      "version": "1.0.0"
+    }
+  ]
+}

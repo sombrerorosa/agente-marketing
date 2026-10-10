@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "agente-marketing": {
+      "source": { "source": "github", "repo": "sombrerorosa/agente-marketing" }
+    }
+  },
+  "enabledPlugins": {
+    "threejs@agente-marketing": true
+  }
+}

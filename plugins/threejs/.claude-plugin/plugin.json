@@ -1,0 +1,7 @@
+{
+  "name": "threejs",
+  "description": "Skills de Three.js para crear escenas 3D: fundamentos, geometría, materiales, luces, texturas, animación, loaders, shaders, post-procesado e interacción.",
+  "version": "1.0.0",
+  "author": { "name": "sombrerorosa" },
+  "homepage": "https://github.com/cloudai-x/threejs-skills"
+}
