@@ -33,10 +33,6 @@ function buildServer(): McpServer {
   return server;
 }
 
-// Built once per isolate and reused across requests handled by that isolate.
-const server = buildServer();
-const handleMcpRequest = createMcpHandler(server, { route: "/mcp", enableJsonResponse: true });
-
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (!env.META_ACCESS_TOKEN || !env.META_AD_ACCOUNT_ID) {
@@ -52,6 +48,18 @@ export default {
     process.env.META_ACCESS_TOKEN = env.META_ACCESS_TOKEN;
     process.env.META_AD_ACCOUNT_ID = env.META_AD_ACCOUNT_ID;
 
+    // A fresh McpServer per request, not one built at module scope and
+    // reused — createMcpHandler's stateless mode throws ("Server is
+    // already connected to a transport") the second time a request reaches
+    // an isolate that already handled one, since .connect() was already
+    // called on a reused instance. This is almost certainly what caused
+    // the earlier "same server error on every retry" incident: the first
+    // request to a freshly (re)started isolate worked, every later request
+    // to that same hot isolate threw. Registering ~20 tools is cheap (sync
+    // closures, no I/O), so paying that cost per request is the right
+    // trade for correctness here.
+    const server = buildServer();
+    const handleMcpRequest = createMcpHandler(server, { route: "/mcp", enableJsonResponse: true });
     return handleMcpRequest(request, env, ctx);
   },
 };
