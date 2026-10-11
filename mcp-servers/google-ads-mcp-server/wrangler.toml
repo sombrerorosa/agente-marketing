@@ -1,0 +1,26 @@
+name = "google-ads-mcp-server"
+main = "src/worker.ts"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
+
+# GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET, GOOGLE_ADS_REFRESH_TOKEN,
+# GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_LOGIN_CUSTOMER_ID and
+# GOOGLE_ADS_DEVELOPER_TOKEN are NOT set here — configure them as Secrets in
+# the Cloudflare dashboard (Workers & Pages > this Worker > Settings >
+# Variables and Secrets), or via `wrangler secret put <NAME>`.
+# Never commit real values for them to this file or anywhere in the repo.
