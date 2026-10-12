@@ -32,7 +32,7 @@ function renderScheduleMarkdown(row: GaqlRow): string {
   const c = row.campaignCriterion as Record<string, unknown>;
   const sched = c.adSchedule as Record<string, unknown>;
   const window = `${formatHM(sched.startHour, sched.startMinute)}-${formatHM(sched.endHour, sched.endMinute)}`;
-  return `- \`${c.criterionId}\` **${sched.dayOfWeek}** ${window}${c.negative ? " _(excluded — campaign is OFF in this window)_" : " _(included — campaign ONLY runs in this window)_"}`;
+  return `- \`${c.criterionId}\` **${sched.dayOfWeek}** ${window} _(campaign runs ONLY during this window, and any other ad-schedule window on this campaign)_`;
 }
 
 export function registerSchedulingTools(server: McpServer): void {
@@ -40,9 +40,9 @@ export function registerSchedulingTools(server: McpServer): void {
     "google_ads_add_campaign_ad_schedule",
     {
       title: "Add Google Ads Campaign Ad Schedule",
-      description: `Add a dayparting (ad schedule) rule to a campaign — restrict or exclude the hours it serves in. Creates one CampaignCriterion per day in \`days\`.
+      description: `Add a dayparting (ad schedule) rule to a campaign — once any ad schedule criterion exists on a campaign, it ONLY serves during the window(s) you've added (and nowhere else), every other hour becomes excluded automatically. Creates one CampaignCriterion per day in \`days\`.
 
-By default (negative=true) this EXCLUDES the given window and leaves every other hour unrestricted — the right choice for "turn this off from X to Y". Setting negative=false instead makes the campaign ONLY serve during the window(s) you've added — don't mix negative=true and negative=false windows on the same campaign without thinking through how they combine, since that's additive restriction, not simple exclusion.
+Google's ad schedule criteria are inclusion-only — there's no "negative ad schedule" to mark one window as excluded while leaving the rest of the day unrestricted (the API rejects negative=true on this criterion type outright). So to turn a campaign OFF for a block of time, add the window(s) covering the REST of the day instead: to go dark from 00:00-06:00, add one window from 06:00-24:00; to go dark from 12:00-14:00, add two windows, 00:00-12:00 and 14:00-24:00.
 
 Args:
   - campaign_id (string): required
@@ -51,12 +51,11 @@ Args:
   - end_hour (number, 0-24): required. 24 = midnight at the end of the day.
   - end_minute ('ZERO'|'FIFTEEN'|'THIRTY'|'FORTY_FIVE', default ZERO)
   - days (string[], default all 7 days): subset of MONDAY..SUNDAY
-  - negative (boolean, default true): see above
   - response_format ('markdown'|'json', default markdown)
 
 Returns the created criterion ids, one per day.
 
-Don't use when: the window spans midnight (e.g. 22:00-06:00) — split it into two calls (22:00-24:00 and 00:00-06:00) instead, since end_hour must be greater than start_hour.
+Don't use when: the window spans midnight (e.g. wanting to serve 22:00-06:00) — split it into two calls (22:00-24:00 and 00:00-06:00) instead, since end_hour must be greater than start_hour.
 
 Error Handling:
   - "Invalid argument" if this exact day/window already has a criterion on this campaign`,
@@ -68,7 +67,6 @@ Error Handling:
         const operations = params.days.map((day) => ({
           create: {
             campaign: resourceName("campaigns", params.campaign_id, params.customer_id),
-            negative: params.negative,
             adSchedule: {
               dayOfWeek: day,
               startHour: params.start_hour,
@@ -82,8 +80,8 @@ Error Handling:
         const ids = results.map((r) => r.resourceName.split("~").pop());
         const window = `${formatHM(params.start_hour, params.start_minute)}-${formatHM(params.end_hour, params.end_minute)}`;
         return buildResponse(
-          { campaign_id: params.campaign_id, criterion_ids: ids, days: params.days, window, negative: params.negative },
-          `${params.negative ? "Excluded" : "Restricted to"} ${window} on ${params.days.join(", ")} for campaign \`${params.campaign_id}\` (criteria: ${ids.join(", ")}).`,
+          { campaign_id: params.campaign_id, criterion_ids: ids, days: params.days, window },
+          `Campaign \`${params.campaign_id}\` now runs only ${window} on ${params.days.join(", ")} (criteria: ${ids.join(", ")}).`,
           params.response_format
         );
       } catch (error) {

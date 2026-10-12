@@ -15,12 +15,6 @@ export const AddCampaignAdScheduleInputSchema = z
     end_hour: z.number().int().min(0).max(24).describe("0-24, the hour this window ends. 24 means midnight at the end of the day."),
     end_minute: MinuteOfHourEnum.default("ZERO"),
     days: z.array(DayOfWeekEnum).min(1).default(ALL_DAYS).describe("Which days this window applies to. Defaults to every day — pass a subset for e.g. weekdays only."),
-    negative: z
-      .boolean()
-      .default(true)
-      .describe(
-        "true (default): the campaign is EXCLUDED from serving during this window (everything outside it is unrestricted) — this is what you want for 'turn it off from X to Y'. false: the campaign ONLY serves during this window (and any other ad-schedule windows you've added) — everything outside all of them is excluded instead."
-      ),
     customer_id: customerIdField,
     response_format: responseFormatField,
   })
