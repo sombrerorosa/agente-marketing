@@ -23,8 +23,8 @@ const CAMPAIGN_FIELDS = [
   "campaign.status",
   "campaign.advertising_channel_type",
   "campaign.bidding_strategy_type",
-  "campaign.start_date",
-  "campaign.end_date",
+  "campaign.start_date_time",
+  "campaign.end_date_time",
   "campaign_budget.resource_name",
   "campaign_budget.amount_micros",
 ];
@@ -39,7 +39,7 @@ function renderCampaignMarkdown(row: GaqlRow): string {
     `- **Channel**: ${c.advertisingChannelType ?? "n/a"}`,
     `- **Bidding strategy**: ${c.biddingStrategyType ?? "n/a"}`,
     `- **Budget**: ${dailyAmount}`,
-    `- **Dates**: ${c.startDate ?? "n/a"} to ${c.endDate ?? "no end date"}`,
+    `- **Dates**: ${c.startDateTime ?? "n/a"} to ${c.endDateTime ?? "no end date"}`,
   ].join("\n");
 }
 
@@ -200,8 +200,8 @@ Error Handling:
               advertisingChannelType: params.advertising_channel_type,
               campaignBudget: budgetResult.resourceName,
               ...biddingStrategyField(params),
-              ...(params.start_date ? { startDate: params.start_date } : {}),
-              ...(params.end_date ? { endDate: params.end_date } : {}),
+              ...(params.start_date ? { startDateTime: `${params.start_date} 00:00:00` } : {}),
+              ...(params.end_date ? { endDateTime: `${params.end_date} 23:59:59` } : {}),
               ...(params.advertising_channel_type === "SEARCH"
                 ? {
                     networkSettings: {
