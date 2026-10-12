@@ -152,45 +152,64 @@ async function post<T>(path: string, body: Record<string, unknown>): Promise<T> 
 }
 
 /** Runs one page of a GAQL query against googleAds:search. */
-async function search(query: string, pageToken: string | undefined, pageSize: number): Promise<GaqlSearchResponse> {
+// The REST search endpoint rejects an explicit pageSize outright
+// (requestError.PAGE_SIZE_NOT_SUPPORTED) — every page is a fixed 10,000
+// rows, no exceptions. Our own `limit` is enforced client-side below.
+async function search(query: string, pageToken?: string): Promise<GaqlSearchResponse> {
   return post<GaqlSearchResponse>(`/customers/${getCustomerId()}/googleAds:search`, {
     query,
-    pageSize,
     ...(pageToken ? { pageToken } : {}),
   });
 }
 
 /**
- * Runs a GAQL query, following Google's opaque-token pagination up to
- * `limit` rows, never loading more pages than requested into memory.
+ * Runs a GAQL query and returns up to `limit` rows starting at the given
+ * cursor. Since Google's own page size is fixed (see `search` above), our
+ * cursor is a plain row offset rather than Google's opaque page token — on
+ * each call we walk Google's pages from the start, skipping `offset` rows,
+ * so a cursor survives fine even though it doesn't map onto a single
+ * underlying page. Cheap in practice: with a fixed page size of 10,000,
+ * almost every query here fits in Google's first page, so this is one
+ * HTTP call per call to this function, not one per Google page.
  */
-export async function searchPaged(query: string, limit: number, startToken?: string): Promise<PagedResult<GaqlRow>> {
+export async function searchPaged(query: string, limit: number, after?: string): Promise<PagedResult<GaqlRow>> {
   const capped = Math.max(1, Math.min(limit, MAX_PAGE_LIMIT));
+  const offset = after ? Number(after) || 0 : 0;
   const items: GaqlRow[] = [];
-  let pageToken = startToken;
-  let nextPageToken: string | undefined;
+  let seen = 0;
+  let pageToken: string | undefined;
+  let moreBeyondLimit = false;
 
-  while (items.length < capped) {
-    const pageSize = Math.min(capped - items.length, MAX_PAGE_LIMIT);
-    const response = await search(query, pageToken, pageSize);
+  outer: while (true) {
+    const response = await search(query, pageToken);
     const rows = response.results ?? [];
-    items.push(...rows);
-    nextPageToken = response.nextPageToken;
-    if (rows.length === 0 || !nextPageToken) break;
-    pageToken = nextPageToken;
+    for (const row of rows) {
+      if (seen >= offset) {
+        if (items.length < capped) {
+          items.push(row);
+        } else {
+          moreBeyondLimit = true;
+          break outer;
+        }
+      }
+      seen++;
+    }
+    pageToken = response.nextPageToken;
+    if (!pageToken || rows.length === 0) break;
   }
 
+  const hasMore = moreBeyondLimit || Boolean(pageToken);
   return {
     count: items.length,
-    items: items.slice(0, capped),
-    has_more: Boolean(nextPageToken),
-    ...(nextPageToken ? { next_cursor: nextPageToken } : {}),
+    items,
+    has_more: hasMore,
+    ...(hasMore ? { next_cursor: String(offset + items.length) } : {}),
   };
 }
 
 /** Runs a GAQL query and returns at most one row — for get_* tools keyed by resource id. */
 export async function searchOne(query: string): Promise<GaqlRow | undefined> {
-  const response = await search(query, undefined, 1);
+  const response = await search(query);
   return response.results?.[0];
 }
 
