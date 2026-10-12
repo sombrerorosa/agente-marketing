@@ -9,9 +9,13 @@ export function registerUtilityTools(server: McpServer): void {
     "google_ads_get_customer",
     {
       title: "Get Google Ads Customer Account",
-      description: `Fetch descriptive info for the configured customer account (GOOGLE_ADS_CUSTOMER_ID). Useful as a first call to confirm the OAuth/credential setup is working.
+      description: `Fetch descriptive info for a customer account — the configured GOOGLE_ADS_CUSTOMER_ID by default, or a different one via customer_id. Useful as a first call to confirm the OAuth/credential setup is working, or to identify which accessible Customer ID (from google_ads_list_accessible_customers) belongs to a given client by name.
 
-Read-only. No arguments besides response_format.
+Read-only.
+
+Args:
+  - customer_id (string, optional): check a different account than GOOGLE_ADS_CUSTOMER_ID
+  - response_format ('markdown'|'json', default markdown)
 
 Returns id, descriptive_name, currency_code, time_zone, and whether this account is itself a manager (MCC) account.
 
@@ -24,7 +28,8 @@ Error Handling:
     async (params: GetCustomerInput) => {
       try {
         const row = await searchOne(
-          "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone, customer.manager FROM customer"
+          "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone, customer.manager FROM customer",
+          params.customer_id
         );
         if (!row) return errorResponse("Error: Could not fetch the configured customer account.");
         const c = row.customer as Record<string, unknown>;

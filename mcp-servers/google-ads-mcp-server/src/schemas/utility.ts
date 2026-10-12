@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { responseFormatField } from "./common.js";
+import { customerIdField, responseFormatField } from "./common.js";
 
 export const GetCustomerInputSchema = z
   .object({
+    customer_id: customerIdField,
     response_format: responseFormatField,
   })
   .strict();

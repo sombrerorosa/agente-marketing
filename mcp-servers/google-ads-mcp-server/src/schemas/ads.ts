@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { paginationFields, responseFormatField, EntityStatusEnum } from "./common.js";
+import { customerIdField, paginationFields, responseFormatField, EntityStatusEnum } from "./common.js";
 
 const HeadlinePinEnum = z.enum(["HEADLINE_1", "HEADLINE_2", "HEADLINE_3"]);
 const DescriptionPinEnum = z.enum(["DESCRIPTION_1", "DESCRIPTION_2"]);
@@ -24,6 +24,7 @@ export const ListAdsInputSchema = z
     campaign_id: z.string().optional().describe("Filter to ads belonging to this campaign. Ignored if ad_group_id is also provided."),
     status_filter: z.array(EntityStatusEnum).optional(),
     ...paginationFields,
+    customer_id: customerIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -36,6 +37,7 @@ export const GetAdInputSchema = z
   .object({
     ad_group_id: z.string().min(1),
     ad_id: z.string().min(1),
+    customer_id: customerIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -50,6 +52,7 @@ export const CreateAdInputSchema = z
     path1: z.string().max(15).optional().describe("First path segment shown after the domain in the displayed URL, e.g. 'ofertas'."),
     path2: z.string().max(15).optional().describe("Second path segment. Requires path1."),
     status: z.enum(["ENABLED", "PAUSED"]).default("PAUSED"),
+    customer_id: customerIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -62,6 +65,7 @@ export const UpdateAdInputSchema = z
     status: z.enum(["ENABLED", "PAUSED", "REMOVED"]).describe(
       "Headline/description/URL content is immutable once created — to change ad copy, remove this ad and create a new one. This tool only flips status."
     ),
+    customer_id: customerIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -71,6 +75,7 @@ export const DeleteAdInputSchema = z
   .object({
     ad_group_id: z.string().min(1),
     ad_id: z.string().min(1),
+    customer_id: customerIdField,
   })
   .strict();
 export type DeleteAdInput = z.infer<typeof DeleteAdInputSchema>;

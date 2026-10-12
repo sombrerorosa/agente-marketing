@@ -57,13 +57,13 @@ Error Handling:
       try {
         const operations = params.keywords.map((kw) => ({
           create: {
-            adGroup: resourceName("adGroups", params.ad_group_id),
+            adGroup: resourceName("adGroups", params.ad_group_id, params.customer_id),
             status: "ENABLED",
             negative: params.negative,
             keyword: { text: kw.text, matchType: kw.match_type },
           },
         }));
-        const results = await mutate("adGroupCriteria", operations);
+        const results = await mutate("adGroupCriteria", operations, params.customer_id);
         const ids = results.map((r) => r.resourceName.split("~").pop());
         return buildResponse(
           { ad_group_id: params.ad_group_id, criterion_ids: ids },
@@ -99,7 +99,7 @@ Args:
         if (params.negative_only) conditions.push("ad_group_criterion.negative = true");
 
         const query = `SELECT ${KEYWORD_FIELDS.join(", ")} FROM ad_group_criterion WHERE ${conditions.join(" AND ")} ORDER BY ad_group_criterion.criterion_id`;
-        const paged = await searchPaged(query, params.limit, params.after);
+        const paged = await searchPaged(query, params.limit, params.after, params.customer_id);
 
         if (!paged.items.length) {
           return { content: [{ type: "text" as const, text: "No keywords found for this ad group." }] };
@@ -127,7 +127,11 @@ Args:
     },
     async (params: RemoveKeywordInput) => {
       try {
-        await mutate("adGroupCriteria", [{ remove: resourceName("adGroupCriteria", `${params.ad_group_id}~${params.criterion_id}`) }]);
+        await mutate(
+          "adGroupCriteria",
+          [{ remove: resourceName("adGroupCriteria", `${params.ad_group_id}~${params.criterion_id}`, params.customer_id) }],
+          params.customer_id
+        );
         return buildResponse(
           { ad_group_id: params.ad_group_id, criterion_id: params.criterion_id, removed: true },
           `Removed keyword criterion \`${params.criterion_id}\` from ad group \`${params.ad_group_id}\`.`,
@@ -156,12 +160,12 @@ Args:
       try {
         const operations = params.keywords.map((kw) => ({
           create: {
-            campaign: resourceName("campaigns", params.campaign_id),
+            campaign: resourceName("campaigns", params.campaign_id, params.customer_id),
             negative: true,
             keyword: { text: kw.text, matchType: kw.match_type },
           },
         }));
-        const results = await mutate("campaignCriteria", operations);
+        const results = await mutate("campaignCriteria", operations, params.customer_id);
         const ids = results.map((r) => r.resourceName.split("~").pop());
         return buildResponse(
           { campaign_id: params.campaign_id, criterion_ids: ids },

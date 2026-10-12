@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { MAX_MEMBERSHIP_LIFE_SPAN_DAYS } from "../constants.js";
-import { paginationFields, responseFormatField } from "./common.js";
+import { customerIdField, paginationFields, responseFormatField } from "./common.js";
 
 export const CreateCustomerMatchListInputSchema = z
   .object({
@@ -13,6 +13,7 @@ export const CreateCustomerMatchListInputSchema = z
       .max(MAX_MEMBERSHIP_LIFE_SPAN_DAYS)
       .default(MAX_MEMBERSHIP_LIFE_SPAN_DAYS)
       .describe(`Days a member stays in the list without a fresh upload (0-${MAX_MEMBERSHIP_LIFE_SPAN_DAYS}; 0 means members never expire). Defaults to the maximum.`),
+    customer_id: customerIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -21,6 +22,7 @@ export type CreateCustomerMatchListInput = z.infer<typeof CreateCustomerMatchLis
 export const ListUserListsInputSchema = z
   .object({
     ...paginationFields,
+    customer_id: customerIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -29,6 +31,7 @@ export type ListUserListsInput = z.infer<typeof ListUserListsInputSchema>;
 export const GetUserListInputSchema = z
   .object({
     user_list_id: z.string().min(1),
+    customer_id: customerIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -37,6 +40,7 @@ export type GetUserListInput = z.infer<typeof GetUserListInputSchema>;
 export const DeleteUserListInputSchema = z
   .object({
     user_list_id: z.string().min(1),
+    customer_id: customerIdField,
   })
   .strict();
 export type DeleteUserListInput = z.infer<typeof DeleteUserListInputSchema>;

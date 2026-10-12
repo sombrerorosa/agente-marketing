@@ -11,6 +11,13 @@ export const responseFormatField = z
   .default(ResponseFormat.MARKDOWN)
   .describe("Output format: 'markdown' for human-readable or 'json' for machine-readable");
 
+export const customerIdField = z
+  .string()
+  .optional()
+  .describe(
+    "Override GOOGLE_ADS_CUSTOMER_ID for this call — the Customer ID of a different account the configured OAuth user (or its MCC) can access, e.g. to manage a client account without redeploying. Digits only; dashes are stripped either way. Use google_ads_list_accessible_customers to find it."
+  );
+
 export const paginationFields = {
   limit: z
     .number()

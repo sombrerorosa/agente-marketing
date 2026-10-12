@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { paginationFields, responseFormatField, EntityStatusEnum } from "./common.js";
+import { customerIdField, paginationFields, responseFormatField, EntityStatusEnum } from "./common.js";
 
 export const AdvertisingChannelTypeEnum = z.enum([
   "SEARCH",
@@ -27,6 +27,7 @@ export const ListCampaignsInputSchema = z
     status_filter: z.array(EntityStatusEnum).optional().describe("Only return campaigns whose status is one of these. Omit to return all."),
     name_contains: z.string().optional().describe("Substring filter on campaign name (GAQL LIKE)."),
     ...paginationFields,
+    customer_id: customerIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -35,6 +36,7 @@ export type ListCampaignsInput = z.infer<typeof ListCampaignsInputSchema>;
 export const GetCampaignInputSchema = z
   .object({
     campaign_id: z.string().min(1).describe("Campaign ID, e.g. '20700000000'"),
+    customer_id: customerIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -64,6 +66,7 @@ export const CreateCampaignInputSchema = z
     target_roas: z.number().positive().optional().describe("Required when bidding_strategy is TARGET_ROAS. Target return on ad spend as a ratio, e.g. 3.5 for 350%."),
     start_date: z.string().optional().describe("YYYY-MM-DD. Omit to start immediately on enabling."),
     end_date: z.string().optional().describe("YYYY-MM-DD. Omit for a campaign that runs until paused/removed."),
+    customer_id: customerIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -75,6 +78,7 @@ export const UpdateCampaignInputSchema = z
     name: z.string().min(1).max(255).optional(),
     status: z.enum(["ENABLED", "PAUSED", "REMOVED"]).optional().describe("Set to PAUSED to stop spend without removing the campaign."),
     daily_budget_micros: z.number().int().positive().optional(),
+    customer_id: customerIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -83,6 +87,7 @@ export type UpdateCampaignInput = z.infer<typeof UpdateCampaignInputSchema>;
 export const DeleteCampaignInputSchema = z
   .object({
     campaign_id: z.string().min(1),
+    customer_id: customerIdField,
   })
   .strict();
 export type DeleteCampaignInput = z.infer<typeof DeleteCampaignInputSchema>;

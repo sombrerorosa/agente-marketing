@@ -80,7 +80,7 @@ Args:
         const fields = params.ad_group_id || !params.campaign_id ? AD_FIELDS : [...AD_FIELDS, "campaign.id"];
         const query = `SELECT ${fields.join(", ")} FROM ad_group_ad${conditions.length ? ` WHERE ${conditions.join(" AND ")}` : ""} ORDER BY ad_group_ad.ad.id`;
 
-        const paged = await searchPaged(query, params.limit, params.after);
+        const paged = await searchPaged(query, params.limit, params.after, params.customer_id);
         if (!paged.items.length) {
           return { content: [{ type: "text" as const, text: "No ads found matching the given filters." }] };
         }
@@ -109,7 +109,7 @@ Args:
     async (params: GetAdInput) => {
       try {
         const query = `SELECT ${AD_FIELDS.join(", ")} FROM ad_group_ad WHERE ad_group.id = ${Number(params.ad_group_id)} AND ad_group_ad.ad.id = ${Number(params.ad_id)}`;
-        const row = await searchOne(query);
+        const row = await searchOne(query, params.customer_id);
         if (!row) return errorResponse(`Error: Ad ${params.ad_id} not found in ad group ${params.ad_group_id}.`);
         return buildResponse(row, renderAdMarkdown(row), params.response_format);
       } catch (error) {
@@ -148,10 +148,12 @@ Error Handling:
           return errorResponse("Error: path2 requires path1 to also be set.");
         }
 
-        const [result] = await mutate("adGroupAds", [
+        const [result] = await mutate(
+          "adGroupAds",
+          [
           {
             create: {
-              adGroup: resourceName("adGroups", params.ad_group_id),
+              adGroup: resourceName("adGroups", params.ad_group_id, params.customer_id),
               status: params.status,
               ad: {
                 finalUrls: params.final_urls,
@@ -170,7 +172,9 @@ Error Handling:
               },
             },
           },
-        ]);
+          ],
+          params.customer_id
+        );
 
         const adId = result.resourceName.split("~").pop()!;
         return buildResponse(
@@ -200,12 +204,19 @@ Args:
     },
     async (params: UpdateAdInput) => {
       try {
-        await mutate("adGroupAds", [
-          {
-            update: { resourceName: resourceName("adGroupAds", `${params.ad_group_id}~${params.ad_id}`), status: params.status },
-            updateMask: "status",
-          },
-        ]);
+        await mutate(
+          "adGroupAds",
+          [
+            {
+              update: {
+                resourceName: resourceName("adGroupAds", `${params.ad_group_id}~${params.ad_id}`, params.customer_id),
+                status: params.status,
+              },
+              updateMask: "status",
+            },
+          ],
+          params.customer_id
+        );
         return buildResponse(
           { ad_group_id: params.ad_group_id, ad_id: params.ad_id, status: params.status },
           `Updated ad \`${params.ad_id}\`: status=${params.status}`,
@@ -233,7 +244,11 @@ Don't use when: you just want to stop it running temporarily — use google_ads_
     },
     async (params: DeleteAdInput) => {
       try {
-        await mutate("adGroupAds", [{ remove: resourceName("adGroupAds", `${params.ad_group_id}~${params.ad_id}`) }]);
+        await mutate(
+          "adGroupAds",
+          [{ remove: resourceName("adGroupAds", `${params.ad_group_id}~${params.ad_id}`, params.customer_id) }],
+          params.customer_id
+        );
         return buildResponse(
           { ad_group_id: params.ad_group_id, ad_id: params.ad_id, removed: true },
           `Removed ad \`${params.ad_id}\` from ad group \`${params.ad_group_id}\`.`,

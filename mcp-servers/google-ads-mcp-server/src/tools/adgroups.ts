@@ -73,7 +73,7 @@ Returns paginated ad groups with id, name, status, type, parent campaign, and CP
           conditions.length ? ` WHERE ${conditions.join(" AND ")}` : ""
         } ORDER BY ad_group.id`;
 
-        const paged = await searchPaged(query, params.limit, params.after);
+        const paged = await searchPaged(query, params.limit, params.after, params.customer_id);
         if (!paged.items.length) {
           return { content: [{ type: "text" as const, text: "No ad groups found matching the given filters." }] };
         }
@@ -100,7 +100,10 @@ Args:
     },
     async (params: GetAdGroupInput) => {
       try {
-        const row = await searchOne(`SELECT ${AD_GROUP_FIELDS.join(", ")} FROM ad_group WHERE ad_group.id = ${Number(params.ad_group_id)}`);
+        const row = await searchOne(
+          `SELECT ${AD_GROUP_FIELDS.join(", ")} FROM ad_group WHERE ad_group.id = ${Number(params.ad_group_id)}`,
+          params.customer_id
+        );
         if (!row) return errorResponse(`Error: Ad group ${params.ad_group_id} not found.`);
         return buildResponse(row, renderAdGroupMarkdown(row), params.response_format);
       } catch (error) {
@@ -131,17 +134,21 @@ Don't use when: you want to change an existing ad group — use google_ads_updat
     },
     async (params: CreateAdGroupInput) => {
       try {
-        const [result] = await mutate("adGroups", [
-          {
-            create: {
-              name: params.name,
-              campaign: resourceName("campaigns", params.campaign_id),
-              status: params.status,
-              type: params.type,
-              ...(params.cpc_bid_micros ? { cpcBidMicros: String(params.cpc_bid_micros) } : {}),
+        const [result] = await mutate(
+          "adGroups",
+          [
+            {
+              create: {
+                name: params.name,
+                campaign: resourceName("campaigns", params.campaign_id, params.customer_id),
+                status: params.status,
+                type: params.type,
+                ...(params.cpc_bid_micros ? { cpcBidMicros: String(params.cpc_bid_micros) } : {}),
+              },
             },
-          },
-        ]);
+          ],
+          params.customer_id
+        );
         const adGroupId = result.resourceName.split("/").pop()!;
         return buildResponse(
           { id: adGroupId, name: params.name, campaign_id: params.campaign_id, status: params.status },
@@ -184,7 +191,11 @@ Don't use when: you want to permanently remove an ad group — use google_ads_de
           return errorResponse("Error: Provide at least one field to update (name, status, or cpc_bid_micros).");
         }
 
-        await mutate("adGroups", [buildUpdateOperation(resourceName("adGroups", ad_group_id), updateFieldsApi)]);
+        await mutate(
+          "adGroups",
+          [buildUpdateOperation(resourceName("adGroups", ad_group_id, params.customer_id), updateFieldsApi)],
+          params.customer_id
+        );
         return buildResponse(
           { ad_group_id, updated: updateFields },
           `Updated ad group \`${ad_group_id}\`: ${Object.entries(updateFields)
@@ -213,7 +224,7 @@ Don't use when: you just want to stop spend temporarily — use google_ads_updat
     },
     async (params: DeleteAdGroupInput) => {
       try {
-        await mutate("adGroups", [{ remove: resourceName("adGroups", params.ad_group_id) }]);
+        await mutate("adGroups", [{ remove: resourceName("adGroups", params.ad_group_id, params.customer_id) }], params.customer_id);
         return buildResponse(
           { ad_group_id: params.ad_group_id, removed: true },
           `Removed ad group \`${params.ad_group_id}\`.`,

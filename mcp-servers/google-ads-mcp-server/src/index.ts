@@ -15,6 +15,7 @@ import { registerAudienceTools } from "./tools/audiences.js";
 import { registerCampaignTools } from "./tools/campaigns.js";
 import { registerInsightTools } from "./tools/insights.js";
 import { registerKeywordTools } from "./tools/keywords.js";
+import { registerSchedulingTools } from "./tools/scheduling.js";
 import { registerUtilityTools } from "./tools/utility.js";
 
 function validateEnvironment(): void {
@@ -42,6 +43,7 @@ async function main(): Promise<void> {
   registerKeywordTools(server);
   registerAudienceTools(server);
   registerInsightTools(server);
+  registerSchedulingTools(server);
   registerUtilityTools(server);
 
   const transport = new StdioServerTransport();

@@ -57,16 +57,20 @@ Returns the created list's id.`,
     },
     async (params: CreateCustomerMatchListInput) => {
       try {
-        const [result] = await mutate("userLists", [
-          {
-            create: {
-              name: params.name,
-              ...(params.description ? { description: params.description } : {}),
-              membershipLifeSpan: params.membership_life_span_days,
-              crmBasedUserList: { uploadKeyType: "CONTACT_INFO" },
+        const [result] = await mutate(
+          "userLists",
+          [
+            {
+              create: {
+                name: params.name,
+                ...(params.description ? { description: params.description } : {}),
+                membershipLifeSpan: params.membership_life_span_days,
+                crmBasedUserList: { uploadKeyType: "CONTACT_INFO" },
+              },
             },
-          },
-        ]);
+          ],
+          params.customer_id
+        );
         const userListId = result.resourceName.split("/").pop()!;
         return buildResponse(
           { id: userListId, name: params.name },
@@ -97,7 +101,7 @@ Args:
     async (params: ListUserListsInput) => {
       try {
         const query = `SELECT ${USER_LIST_FIELDS.join(", ")} FROM user_list ORDER BY user_list.id`;
-        const paged = await searchPaged(query, params.limit, params.after);
+        const paged = await searchPaged(query, params.limit, params.after, params.customer_id);
         if (!paged.items.length) {
           return { content: [{ type: "text" as const, text: "No user lists found in this account." }] };
         }
@@ -123,7 +127,10 @@ Args:
     },
     async (params: GetUserListInput) => {
       try {
-        const row = await searchOne(`SELECT ${USER_LIST_FIELDS.join(", ")} FROM user_list WHERE user_list.id = ${Number(params.user_list_id)}`);
+        const row = await searchOne(
+          `SELECT ${USER_LIST_FIELDS.join(", ")} FROM user_list WHERE user_list.id = ${Number(params.user_list_id)}`,
+          params.customer_id
+        );
         if (!row) return errorResponse(`Error: User list ${params.user_list_id} not found.`);
         return buildResponse(row, renderUserListMarkdown(row), params.response_format);
       } catch (error) {
@@ -145,7 +152,11 @@ Args:
     },
     async (params: DeleteUserListInput) => {
       try {
-        await mutate("userLists", [{ remove: resourceName("userLists", params.user_list_id) }]);
+        await mutate(
+          "userLists",
+          [{ remove: resourceName("userLists", params.user_list_id, params.customer_id) }],
+          params.customer_id
+        );
         return buildResponse(
           { user_list_id: params.user_list_id, removed: true },
           `Removed user list \`${params.user_list_id}\`.`,

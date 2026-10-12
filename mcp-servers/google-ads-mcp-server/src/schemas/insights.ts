@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { paginationFields, responseFormatField } from "./common.js";
+import { customerIdField, paginationFields, responseFormatField } from "./common.js";
 
 export const LevelEnum = z.enum(["account", "campaign", "ad_group", "ad"]);
 
@@ -31,6 +31,7 @@ export const GetInsightsInputSchema = z
     metrics: z.array(z.string()).optional().describe(`Metric fields to return, e.g. 'metrics.impressions'. Defaults to: ${DEFAULT_METRICS.join(", ")}.`),
     breakdowns: z.array(BreakdownEnum).optional().describe("Split results by segment, e.g. ['device']. At most 2 recommended to avoid combinatorial blowup."),
     ...paginationFields,
+    customer_id: customerIdField,
     response_format: responseFormatField,
   })
   .strict();

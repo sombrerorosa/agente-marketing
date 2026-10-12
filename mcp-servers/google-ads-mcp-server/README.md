@@ -138,6 +138,14 @@ npx wrangler deploy --dry-run --outdir /tmp/out
 
 ## Tools
 
+Every tool takes an optional `customer_id` that overrides
+`GOOGLE_ADS_CUSTOMER_ID` for that one call — an agency managing several
+client accounts under the same OAuth login (or the same MCC) doesn't need a
+separate deployment per client. Use `google_ads_list_accessible_customers`
+to find the Customer IDs the configured credentials can reach, and
+`google_ads_get_customer` with `customer_id` set to check which one belongs
+to which client by name.
+
 **Campaigns** — `google_ads_list_campaigns`, `google_ads_get_campaign`,
 `google_ads_create_campaign`, `google_ads_update_campaign`,
 `google_ads_delete_campaign`. Google always budgets at the campaign level
@@ -162,6 +170,11 @@ is immutable once created), `google_ads_delete_ad`.
 
 **Insights** — `google_ads_get_insights`: GAQL-backed performance reporting
 at the account/campaign/ad-group/ad level.
+
+**Ad schedule (dayparting)** — `google_ads_add_campaign_ad_schedule`,
+`google_ads_list_campaign_ad_schedule`,
+`google_ads_remove_campaign_ad_schedule`. Restrict or exclude the hours/days
+a campaign serves in.
 
 **Utility** — `google_ads_get_customer`, `google_ads_list_accessible_customers`.
 

@@ -117,7 +117,7 @@ Error Handling:
 
         const query = `SELECT ${selectFields.join(", ")} FROM ${FROM_RESOURCE[params.level]} WHERE ${conditions.join(" AND ")}`;
 
-        const paged = await searchPaged(query, params.limit, params.after);
+        const paged = await searchPaged(query, params.limit, params.after, params.customer_id);
         if (!paged.items.length) {
           return { content: [{ type: "text" as const, text: "No insights data found for the given range/filters." }] };
         }

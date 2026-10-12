@@ -98,7 +98,7 @@ Error Handling:
           conditions.length ? ` WHERE ${conditions.join(" AND ")}` : ""
         } ORDER BY campaign.id`;
 
-        const paged = await searchPaged(query, params.limit, params.after);
+        const paged = await searchPaged(query, params.limit, params.after, params.customer_id);
 
         if (!paged.items.length) {
           return { content: [{ type: "text" as const, text: "No campaigns found matching the given filters." }] };
@@ -132,7 +132,7 @@ Error Handling:
     async (params: GetCampaignInput) => {
       try {
         const query = `SELECT ${CAMPAIGN_FIELDS.join(", ")} FROM campaign WHERE campaign.id = ${Number(params.campaign_id)}`;
-        const row = await searchOne(query);
+        const row = await searchOne(query, params.customer_id);
         if (!row) return errorResponse(`Error: Campaign ${params.campaign_id} not found.`);
         return buildResponse(row, renderCampaignMarkdown(row), params.response_format);
       } catch (error) {
@@ -181,18 +181,24 @@ Error Handling:
           return errorResponse("Error: target_roas is required when bidding_strategy is TARGET_ROAS.");
         }
 
-        const [budgetResult] = await mutate("campaignBudgets", [
-          {
-            create: {
-              name: `${params.name} Budget`,
-              amountMicros: String(params.daily_budget_micros),
-              deliveryMethod: params.budget_delivery_method,
-              explicitlyShared: params.shared_budget,
+        const [budgetResult] = await mutate(
+          "campaignBudgets",
+          [
+            {
+              create: {
+                name: `${params.name} Budget`,
+                amountMicros: String(params.daily_budget_micros),
+                deliveryMethod: params.budget_delivery_method,
+                explicitlyShared: params.shared_budget,
+              },
             },
-          },
-        ]);
+          ],
+          params.customer_id
+        );
 
-        const [campaignResult] = await mutate("campaigns", [
+        const [campaignResult] = await mutate(
+          "campaigns",
+          [
           {
             create: {
               name: params.name,
@@ -214,7 +220,9 @@ Error Handling:
                 : {}),
             },
           },
-        ]);
+          ],
+          params.customer_id
+        );
 
         const campaignId = campaignResult.resourceName.split("/").pop()!;
         const payload = { id: campaignId, name: params.name, status: params.status, advertising_channel_type: params.advertising_channel_type };
@@ -261,15 +269,26 @@ Don't use when: you want to permanently remove a campaign — use google_ads_del
 
         const updated: Record<string, unknown> = {};
         if (Object.keys(campaignFields).length) {
-          await mutate("campaigns", [buildUpdateOperation(resourceName("campaigns", campaign_id), campaignFields)]);
+          await mutate(
+            "campaigns",
+            [buildUpdateOperation(resourceName("campaigns", campaign_id, params.customer_id), campaignFields)],
+            params.customer_id
+          );
           Object.assign(updated, campaignFields);
         }
 
         if (daily_budget_micros !== undefined) {
-          const row = await searchOne(`SELECT campaign_budget.resource_name FROM campaign WHERE campaign.id = ${Number(campaign_id)}`);
+          const row = await searchOne(
+            `SELECT campaign_budget.resource_name FROM campaign WHERE campaign.id = ${Number(campaign_id)}`,
+            params.customer_id
+          );
           const budgetResourceName = (row?.campaignBudget as Record<string, unknown> | undefined)?.resourceName as string | undefined;
           if (!budgetResourceName) return errorResponse(`Error: Campaign ${campaign_id} not found.`);
-          await mutate("campaignBudgets", [buildUpdateOperation(budgetResourceName, { amountMicros: String(daily_budget_micros) })]);
+          await mutate(
+            "campaignBudgets",
+            [buildUpdateOperation(budgetResourceName, { amountMicros: String(daily_budget_micros) })],
+            params.customer_id
+          );
           updated.daily_budget_micros = daily_budget_micros;
         }
 
@@ -303,7 +322,7 @@ Don't use when: you just want to stop spend temporarily — use google_ads_updat
     },
     async (params: DeleteCampaignInput) => {
       try {
-        await mutate("campaigns", [{ remove: resourceName("campaigns", params.campaign_id) }]);
+        await mutate("campaigns", [{ remove: resourceName("campaigns", params.campaign_id, params.customer_id) }], params.customer_id);
         return buildResponse(
           { campaign_id: params.campaign_id, removed: true },
           `Removed campaign \`${params.campaign_id}\`.`,

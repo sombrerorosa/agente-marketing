@@ -29,8 +29,14 @@ function digitsOnly(id: string): string {
   return id.replace(/[^0-9]/g, "");
 }
 
-export function getCustomerId(): string {
-  return digitsOnly(requireEnv("GOOGLE_ADS_CUSTOMER_ID"));
+/**
+ * The account a call operates on. `override` lets a single deployment act
+ * on any customer ID the configured OAuth user/MCC can reach — an agency
+ * managing several client accounts doesn't need a separate deployment (or
+ * to flip the GOOGLE_ADS_CUSTOMER_ID secret) per client.
+ */
+export function getCustomerId(override?: string): string {
+  return digitsOnly(override || requireEnv("GOOGLE_ADS_CUSTOMER_ID"));
 }
 
 /** Optional — only set when authenticating against a client account via its MCC. */
@@ -155,8 +161,8 @@ async function post<T>(path: string, body: Record<string, unknown>): Promise<T> 
 // The REST search endpoint rejects an explicit pageSize outright
 // (requestError.PAGE_SIZE_NOT_SUPPORTED) — every page is a fixed 10,000
 // rows, no exceptions. Our own `limit` is enforced client-side below.
-async function search(query: string, pageToken?: string): Promise<GaqlSearchResponse> {
-  return post<GaqlSearchResponse>(`/customers/${getCustomerId()}/googleAds:search`, {
+async function search(query: string, pageToken?: string, customerId?: string): Promise<GaqlSearchResponse> {
+  return post<GaqlSearchResponse>(`/customers/${getCustomerId(customerId)}/googleAds:search`, {
     query,
     ...(pageToken ? { pageToken } : {}),
   });
@@ -172,7 +178,7 @@ async function search(query: string, pageToken?: string): Promise<GaqlSearchResp
  * almost every query here fits in Google's first page, so this is one
  * HTTP call per call to this function, not one per Google page.
  */
-export async function searchPaged(query: string, limit: number, after?: string): Promise<PagedResult<GaqlRow>> {
+export async function searchPaged(query: string, limit: number, after?: string, customerId?: string): Promise<PagedResult<GaqlRow>> {
   const capped = Math.max(1, Math.min(limit, MAX_PAGE_LIMIT));
   const offset = after ? Number(after) || 0 : 0;
   const items: GaqlRow[] = [];
@@ -181,7 +187,7 @@ export async function searchPaged(query: string, limit: number, after?: string):
   let moreBeyondLimit = false;
 
   outer: while (true) {
-    const response = await search(query, pageToken);
+    const response = await search(query, pageToken, customerId);
     const rows = response.results ?? [];
     for (const row of rows) {
       if (seen >= offset) {
@@ -208,14 +214,14 @@ export async function searchPaged(query: string, limit: number, after?: string):
 }
 
 /** Runs a GAQL query and returns at most one row — for get_* tools keyed by resource id. */
-export async function searchOne(query: string): Promise<GaqlRow | undefined> {
-  const response = await search(query);
+export async function searchOne(query: string, customerId?: string): Promise<GaqlRow | undefined> {
+  const response = await search(query, undefined, customerId);
   return response.results?.[0];
 }
 
 /** Builds a resource name, e.g. resourceName("campaigns", "456") -> "customers/123/campaigns/456". */
-export function resourceName(collection: string, id: string): string {
-  return `customers/${getCustomerId()}/${collection}/${id}`;
+export function resourceName(collection: string, id: string, customerId?: string): string {
+  return `customers/${getCustomerId(customerId)}/${collection}/${id}`;
 }
 
 function camelToSnake(key: string): string {
@@ -243,8 +249,8 @@ export type MutateOperation = Record<string, unknown>;
  * always off — if any operation fails, the whole call fails, so a tool
  * never has to reconcile a mix of applied and rejected operations.
  */
-export async function mutate(resource: string, operations: MutateOperation[]): Promise<MutateResult[]> {
-  const response = await post<MutateResponse>(`/customers/${getCustomerId()}/${resource}:mutate`, {
+export async function mutate(resource: string, operations: MutateOperation[], customerId?: string): Promise<MutateResult[]> {
+  const response = await post<MutateResponse>(`/customers/${getCustomerId(customerId)}/${resource}:mutate`, {
     operations,
     partialFailure: false,
   });
