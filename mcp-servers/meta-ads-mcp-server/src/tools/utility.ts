@@ -1,9 +1,19 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { GetAdAccountInput, GetAdAccountInputSchema, ListPagesInput, ListPagesInputSchema } from "../schemas/utility.js";
+import {
+  DeleteOrganicContentInput,
+  DeleteOrganicContentInputSchema,
+  GetAdAccountInput,
+  GetAdAccountInputSchema,
+  GetInstagramAccountInput,
+  GetInstagramAccountInputSchema,
+  ListPagesInput,
+  ListPagesInputSchema,
+} from "../schemas/utility.js";
+import { ResponseFormat } from "../schemas/common.js";
 import { handleGraphApiError } from "../services/errorHandler.js";
 import { buildResponse, errorResponse, pagedJson } from "../services/formatting.js";
 import { getAdAccountId, graphRequest, listPaged } from "../services/graphApiClient.js";
-import type { AdAccount, Page } from "../types.js";
+import type { AdAccount, InstagramAccount, Page } from "../types.js";
 
 const AD_ACCOUNT_FIELDS = "id,account_id,name,account_status,currency,timezone_name,amount_spent,spend_cap,balance";
 
@@ -80,6 +90,65 @@ Error Handling:
           "\n"
         );
         return buildResponse(pagedJson(paged), markdown, params.response_format);
+      } catch (error) {
+        return errorResponse(handleGraphApiError(error));
+      }
+    }
+  );
+
+  server.registerTool(
+    "meta_organic_get_instagram_account",
+    {
+      title: "Get Instagram Business Account for a Page",
+      description: `Fetch the Instagram Business Account linked to a Facebook Page, if any — needed as the ig_user_id argument for the meta_organic_*_instagram_* / *_ig_* tools.
+
+Read-only.
+
+Args:
+  - page_id (string): required
+  - response_format ('markdown'|'json', default markdown)
+
+Returns id, username, follower count.
+
+Error Handling:
+  - Empty/missing result means this Page has no Instagram Business Account connected — link one in Meta Business Suite first`,
+      inputSchema: GetInstagramAccountInputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (params: GetInstagramAccountInput) => {
+      try {
+        const page = await graphRequest<{ instagram_business_account?: InstagramAccount }>(`/${params.page_id}`, {
+          params: { fields: "instagram_business_account{id,username,profile_picture_url,followers_count}" },
+        });
+        const ig = page.instagram_business_account;
+        if (!ig) {
+          return errorResponse(`Error: Page ${params.page_id} has no Instagram Business Account connected. Link one in Meta Business Suite > Settings > Linked Accounts.`);
+        }
+        const markdown = [`## @${ig.username ?? "(no username)"} (\`${ig.id}\`)`, `- **Followers**: ${ig.followers_count ?? "n/a"}`].join("\n");
+        return buildResponse(ig as unknown as Record<string, unknown>, markdown, params.response_format);
+      } catch (error) {
+        return errorResponse(handleGraphApiError(error));
+      }
+    }
+  );
+
+  server.registerTool(
+    "meta_organic_delete_content",
+    {
+      title: "Delete Organic Content",
+      description: `Permanently delete an organic Facebook post/photo/video. This cannot be undone.
+
+Doesn't work for Instagram — the Instagram Graph API doesn't expose a reliable media-deletion endpoint; delete Instagram posts from the Instagram app or Meta Business Suite instead.
+
+Args:
+  - id (string): required — a Facebook post/photo/video id`,
+      inputSchema: DeleteOrganicContentInputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+    },
+    async (params: DeleteOrganicContentInput) => {
+      try {
+        await graphRequest(`/${params.id}`, { method: "DELETE" });
+        return buildResponse({ id: params.id, deleted: true }, `Deleted \`${params.id}\`.`, ResponseFormat.MARKDOWN);
       } catch (error) {
         return errorResponse(handleGraphApiError(error));
       }

@@ -115,6 +115,43 @@ export interface AudienceRef {
   delivery_status?: { code: number; description: string };
 }
 
+export interface FacebookPost {
+  id: string;
+  message?: string;
+  story?: string;
+  status_type?: string;
+  permalink_url?: string;
+  created_time?: string;
+  scheduled_publish_time?: string;
+  is_published?: boolean;
+}
+
+export interface InstagramAccount {
+  id: string;
+  username?: string;
+  profile_picture_url?: string;
+  followers_count?: number;
+}
+
+export interface InstagramMedia {
+  id: string;
+  caption?: string;
+  media_type?: string;
+  media_url?: string;
+  permalink?: string;
+  timestamp?: string;
+}
+
+export interface MediaContainer {
+  id: string;
+}
+
+export interface ContainerStatus {
+  id: string;
+  status_code: "EXPIRED" | "ERROR" | "FINISHED" | "IN_PROGRESS" | "PUBLISHED";
+  status?: string;
+}
+
 export interface InsightRow {
   date_start?: string;
   date_stop?: string;

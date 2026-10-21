@@ -31,7 +31,11 @@ interactive OAuth login — it's meant to run unattended.
    in ad creatives to the same System User.
 4. On the System User, **Generate New Token** for your app with scopes:
    `ads_management`, `ads_read`, `business_management`, `pages_show_list`,
-   `pages_read_engagement`, `read_insights`. Set expiration to **Never**.
+   `pages_read_engagement`, `read_insights`. Set expiration to **Never**. If
+   you'll use the organic posting tools (`meta_organic_*`), also add
+   `pages_manage_posts`, `instagram_basic`, and `instagram_content_publish`
+   — and link an Instagram Business Account to the Page in Meta Business
+   Suite first if you want to post to Instagram.
 5. Verify it: `curl "https://graph.facebook.com/v21.0/act_<AD_ACCOUNT_ID>?fields=name&access_token=<TOKEN>"`
 
 **Never commit real values for `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_ID`
@@ -112,6 +116,35 @@ npx wrangler deploy --dry-run --outdir /tmp/out
 
 All write/update/delete tools default new campaigns and ad sets to
 `status=PAUSED` so nothing spends until explicitly activated.
+
+### Organic posting (`meta_organic_*`)
+
+Free reach, not paid ads — separate API (Page feed / Instagram content
+publishing) and separate token scopes (see step 4 above), but the same
+token and the same server.
+
+| Tool | Description |
+|---|---|
+| `meta_organic_create_fb_post` | Text/link/photo(s)/video Page post, publish now or schedule (`scheduled_publish_time`) |
+| `meta_organic_list_fb_posts` / `get_fb_post` | Read Page posts |
+| `meta_organic_create_ig_post` | Single image or video (Reel) post to an Instagram Business Account |
+| `meta_organic_create_ig_carousel` | 2-10 item carousel post |
+| `meta_organic_publish_instagram_container` / `get_instagram_container_status` | Manual publish / status check for a video container still processing when the create tool returned |
+| `meta_organic_list_instagram_media` / `get_instagram_media` | Read Instagram posts |
+| `meta_organic_get_instagram_account` | Find the Instagram Business Account linked to a Page |
+| `meta_organic_delete_content` | Delete a Facebook post/photo/video (Instagram media can't be deleted via this API) |
+
+Known gaps:
+- **No native Instagram scheduling** — Meta doesn't expose a
+  scheduled-publish parameter on the Instagram content-publishing API, only
+  on Facebook's. Use Meta Business Suite to schedule Instagram posts.
+- **Facebook video posts use the classic `/videos` endpoint**, not Meta's
+  newer Reels-specific publishing API (`/video_reels`, a 3-step flow
+  uploading to a separate host). The result is a regular Page video post,
+  not guaranteed placement in the Reels tab specifically. Ask for
+  `/video_reels` support explicitly if you need that.
+- **Instagram media can't be deleted via this API** — delete from the
+  Instagram app or Meta Business Suite instead.
 
 ## Known limitations (v1)
 

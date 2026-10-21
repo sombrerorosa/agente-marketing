@@ -15,3 +15,18 @@ export const ListPagesInputSchema = z
   })
   .strict();
 export type ListPagesInput = z.infer<typeof ListPagesInputSchema>;
+
+export const GetInstagramAccountInputSchema = z
+  .object({
+    page_id: z.string().min(1).describe("Facebook Page ID. Use meta_ads_list_pages to find it."),
+    response_format: responseFormatField,
+  })
+  .strict();
+export type GetInstagramAccountInput = z.infer<typeof GetInstagramAccountInputSchema>;
+
+export const DeleteOrganicContentInputSchema = z
+  .object({
+    id: z.string().min(1).describe("A Facebook post/photo/video id. Instagram media can't be deleted via this API — see the tool description."),
+  })
+  .strict();
+export type DeleteOrganicContentInput = z.infer<typeof DeleteOrganicContentInputSchema>;

@@ -14,6 +14,8 @@ import { registerAudienceTools } from "./tools/audiences.js";
 import { registerCampaignTools } from "./tools/campaigns.js";
 import { registerCreativeTools } from "./tools/creatives.js";
 import { registerInsightTools } from "./tools/insights.js";
+import { registerOrganicFacebookTools } from "./tools/organicFacebook.js";
+import { registerOrganicInstagramTools } from "./tools/organicInstagram.js";
 import { registerUtilityTools } from "./tools/utility.js";
 
 interface Env {
@@ -29,6 +31,8 @@ function buildServer(): McpServer {
   registerCreativeTools(server);
   registerAudienceTools(server);
   registerInsightTools(server);
+  registerOrganicFacebookTools(server);
+  registerOrganicInstagramTools(server);
   registerUtilityTools(server);
   return server;
 }
