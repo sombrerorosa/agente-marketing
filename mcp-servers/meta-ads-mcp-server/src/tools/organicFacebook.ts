@@ -9,7 +9,7 @@ import {
 } from "../schemas/organicFacebook.js";
 import { handleGraphApiError } from "../services/errorHandler.js";
 import { buildResponse, errorResponse, pagedJson } from "../services/formatting.js";
-import { graphRequest, listPaged } from "../services/graphApiClient.js";
+import { getPageAccessToken, graphRequest, listPaged } from "../services/graphApiClient.js";
 import type { FacebookPost } from "../types.js";
 
 const POST_FIELDS = "id,message,story,status_type,permalink_url,created_time,scheduled_publish_time,is_published";
@@ -25,9 +25,10 @@ function renderPostMarkdown(p: FacebookPost): string {
 }
 
 /** Uploads one photo unpublished (for later attachment to a multi-photo feed post) and returns its media id. */
-async function uploadUnpublishedPhoto(pageId: string, imageUrl: string, forScheduledPost: boolean): Promise<string> {
+async function uploadUnpublishedPhoto(pageId: string, imageUrl: string, forScheduledPost: boolean, pageAccessToken: string): Promise<string> {
   const photo = await graphRequest<{ id: string }>(`/${pageId}/photos`, {
     method: "POST",
+    accessToken: pageAccessToken,
     params: {
       url: imageUrl,
       published: false,
@@ -72,23 +73,27 @@ Error Handling:
         const scheduleParams = scheduled
           ? { published: false, scheduled_publish_time: params.scheduled_publish_time }
           : { published: true };
+        const pageAccessToken = await getPageAccessToken(params.page_id);
 
         let result: { id: string; post_id?: string };
 
         if (params.video_url) {
           result = await graphRequest(`/${params.page_id}/videos`, {
             method: "POST",
+            accessToken: pageAccessToken,
             params: { file_url: params.video_url, description: params.message, ...scheduleParams },
           });
         } else if (params.image_urls && params.image_urls.length === 1) {
           result = await graphRequest(`/${params.page_id}/photos`, {
             method: "POST",
+            accessToken: pageAccessToken,
             params: { url: params.image_urls[0], caption: params.message, ...scheduleParams },
           });
         } else if (params.image_urls && params.image_urls.length > 1) {
-          const photoIds = await Promise.all(params.image_urls.map((url) => uploadUnpublishedPhoto(params.page_id, url, scheduled)));
+          const photoIds = await Promise.all(params.image_urls.map((url) => uploadUnpublishedPhoto(params.page_id, url, scheduled, pageAccessToken)));
           result = await graphRequest(`/${params.page_id}/feed`, {
             method: "POST",
+            accessToken: pageAccessToken,
             params: {
               message: params.message,
               attached_media: JSON.stringify(photoIds.map((id) => ({ media_fbid: id }))),
@@ -99,6 +104,7 @@ Error Handling:
         } else {
           result = await graphRequest(`/${params.page_id}/feed`, {
             method: "POST",
+            accessToken: pageAccessToken,
             params: { message: params.message, link: params.link, ...scheduleParams },
           });
         }
@@ -133,7 +139,8 @@ Args:
     },
     async (params: ListFacebookPostsInput) => {
       try {
-        const paged = await listPaged<FacebookPost>(`/${params.page_id}/feed`, { fields: POST_FIELDS }, params.limit);
+        const pageAccessToken = await getPageAccessToken(params.page_id);
+        const paged = await listPaged<FacebookPost>(`/${params.page_id}/feed`, { fields: POST_FIELDS }, params.limit, pageAccessToken);
         if (!paged.items.length) {
           return { content: [{ type: "text" as const, text: "No posts found on this Page." }] };
         }
@@ -152,14 +159,16 @@ Args:
       description: `Fetch full details for a single Facebook post by ID.
 
 Args:
-  - post_id (string): required
+  - post_id (string): required, format "{page_id}_{post_id}"
   - response_format ('markdown'|'json', default markdown)`,
       inputSchema: GetFacebookPostInputSchema,
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async (params: GetFacebookPostInput) => {
       try {
-        const post = await graphRequest<FacebookPost>(`/${params.post_id}`, { params: { fields: POST_FIELDS } });
+        const pageId = params.post_id.split("_")[0];
+        const pageAccessToken = await getPageAccessToken(pageId);
+        const post = await graphRequest<FacebookPost>(`/${params.post_id}`, { params: { fields: POST_FIELDS }, accessToken: pageAccessToken });
         return buildResponse(post as unknown as Record<string, unknown>, renderPostMarkdown(post), params.response_format);
       } catch (error) {
         return errorResponse(handleGraphApiError(error));

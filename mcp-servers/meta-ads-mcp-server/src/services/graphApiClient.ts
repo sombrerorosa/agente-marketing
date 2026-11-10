@@ -36,6 +36,26 @@ export function getAdAccountId(): string {
   return id.startsWith("act_") ? id : `act_${id}`;
 }
 
+/**
+ * Page-scoped content edges (/feed, /photos, /videos — reading or
+ * publishing a Page's own posts) reject the System User's own access
+ * token with a bare OAuthException, even though that same token can read
+ * ordinary fields on the Page node directly via its Business Manager
+ * asset permission. Meta requires the derived Page Access Token for these
+ * edges instead — fetched here via the Page's `access_token` field, which
+ * a System User with "Full Control" over the Page as a business asset can
+ * always read.
+ */
+export async function getPageAccessToken(pageId: string): Promise<string> {
+  const page = await graphRequest<{ access_token?: string }>(`/${pageId}`, { params: { fields: "access_token" } });
+  if (!page.access_token) {
+    throw new Error(
+      `Could not derive a Page Access Token for Page ${pageId} — confirm the System User has "Full Control" over this Page as a Business Manager asset.`
+    );
+  }
+  return page.access_token;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -78,6 +98,8 @@ function warnIfNearingUsageLimit(headers: Headers): void {
 interface RequestOptions {
   method?: "GET" | "POST" | "DELETE";
   params?: Record<string, unknown>;
+  /** Use this token instead of META_ACCESS_TOKEN for this one request — see getPageAccessToken. */
+  accessToken?: string;
 }
 
 function buildUrl(endpoint: string, params: Record<string, unknown>): URL {
@@ -98,7 +120,7 @@ function buildUrl(endpoint: string, params: Record<string, unknown>): URL {
  * both Node 18+ and the Cloudflare Workers runtime.
  */
 export async function graphRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", params = {} } = options;
+  const { method = "GET", params = {}, accessToken } = options;
   let attempt = 0;
 
   // GET requests carry params in the query string. POST/DELETE send them as
@@ -120,7 +142,7 @@ export async function graphRequest<T>(endpoint: string, options: RequestOptions 
         method,
         signal: controller.signal,
         headers: {
-          Authorization: `Bearer ${getAccessToken()}`,
+          Authorization: `Bearer ${accessToken ?? getAccessToken()}`,
           ...(requestBody ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
         },
         ...(requestBody ? { body: requestBody.toString() } : {}),
@@ -164,7 +186,8 @@ export async function graphRequest<T>(endpoint: string, options: RequestOptions 
 export async function listPaged<T>(
   endpoint: string,
   params: Record<string, unknown>,
-  limit: number
+  limit: number,
+  accessToken?: string
 ): Promise<PagedResult<T>> {
   const capped = Math.max(1, Math.min(limit, MAX_PAGE_LIMIT));
   const items: T[] = [];
@@ -175,6 +198,7 @@ export async function listPaged<T>(
     const pageSize = Math.min(capped - items.length, MAX_PAGE_LIMIT);
     const response = await graphRequest<GraphApiListResponse<T>>(endpoint, {
       params: { ...params, after, limit: pageSize },
+      accessToken,
     });
     items.push(...response.data);
     after = response.paging?.cursors?.after;
