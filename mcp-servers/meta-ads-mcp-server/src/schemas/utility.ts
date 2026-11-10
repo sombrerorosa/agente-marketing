@@ -30,3 +30,10 @@ export const DeleteOrganicContentInputSchema = z
   })
   .strict();
 export type DeleteOrganicContentInput = z.infer<typeof DeleteOrganicContentInputSchema>;
+
+export const GetTokenPermissionsInputSchema = z
+  .object({
+    response_format: responseFormatField,
+  })
+  .strict();
+export type GetTokenPermissionsInput = z.infer<typeof GetTokenPermissionsInputSchema>;
