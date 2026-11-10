@@ -133,7 +133,7 @@ Args:
     },
     async (params: ListFacebookPostsInput) => {
       try {
-        const paged = await listPaged<FacebookPost>(`/${params.page_id}/posts`, { fields: POST_FIELDS }, params.limit);
+        const paged = await listPaged<FacebookPost>(`/${params.page_id}/feed`, { fields: POST_FIELDS }, params.limit);
         if (!paged.items.length) {
           return { content: [{ type: "text" as const, text: "No posts found on this Page." }] };
         }
