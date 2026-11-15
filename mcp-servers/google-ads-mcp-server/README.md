@@ -58,7 +58,20 @@ the old developer-token-gated model as of mid-2026.
    Client ID/Secret from step 4, then in Step 1 authorize the scope
    `https://www.googleapis.com/auth/adwords`, sign in as the right Google
    account, and in Step 2 exchange the authorization code for tokens. Copy
-   the **refresh_token** — it doesn't expire unless revoked.
+   the **refresh_token**.
+
+   **If this Cloud project's OAuth consent screen is still in "Testing"
+   publishing status**, the refresh token expires after 7 days regardless
+   of use — this is Google's policy for unpublished apps, not something
+   this server controls. Fix it at the source: if the Google account is a
+   Workspace account, switch the consent screen's user type to
+   **Internal** (no expiry, no review). Otherwise, publish the app to
+   production — `adwords` is a "sensitive" scope, so this triggers
+   Google's sensitive-scope verification (a few business days, needs a
+   published privacy policy), after which production refresh tokens don't
+   hit the 7-day limit. A token generated while still in Testing mode may
+   keep the short lifetime even after you publish — regenerate it once
+   more after the project is Internal/published.
 7. **Find your Customer ID.** If you already know it (it's the number shown
    top-right in the Google Ads UI, e.g. `123-456-7890`), strip the dashes.
    Otherwise, fill in just the client ID/secret/refresh token below, run
