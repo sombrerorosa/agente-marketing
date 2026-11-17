@@ -1,5 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { DEFAULT_METRICS, GetInsightsInput, GetInsightsInputSchema } from "../schemas/insights.js";
+import {
+  DEFAULT_METRICS,
+  GetInsightsInput,
+  GetInsightsInputSchema,
+  GetKeywordInsightsInput,
+  GetKeywordInsightsInputSchema,
+  GetSearchTermInsightsInput,
+  GetSearchTermInsightsInputSchema,
+} from "../schemas/insights.js";
 import { handleGoogleAdsError } from "../services/errorHandler.js";
 import { buildResponse, errorResponse, pagedJson } from "../services/formatting.js";
 import { searchPaged } from "../services/googleAdsClient.js";
@@ -51,6 +59,81 @@ function renderInsightRow(row: GaqlRow): string {
     `- **Cost**: ${microsToUnits(m?.costMicros)}`,
     `- **Avg. CPC**: ${m?.averageCpc ? microsToUnits(m.averageCpc) : "n/a"}`,
     `- **Conversions**: ${m?.conversions ?? "0"} (value: ${m?.conversionsValue ?? "0"})`,
+  ].join("\n");
+}
+
+/** Shared date-range validation/condition-building for the keyword and search-term insight tools below. */
+function dateCondition(params: { date_preset?: string; since?: string; until?: string }): { error: string } | { condition: string } {
+  if (!params.date_preset && !(params.since && params.until)) {
+    return { error: "Error: Provide either date_preset or both since and until." };
+  }
+  if (params.date_preset && params.since) {
+    return { error: "Error: Provide either date_preset or since/until, not both." };
+  }
+  return {
+    condition: params.date_preset ? `segments.date DURING ${params.date_preset}` : `segments.date BETWEEN '${params.since}' AND '${params.until}'`,
+  };
+}
+
+const KEYWORD_INSIGHT_FIELDS = [
+  "campaign.id",
+  "campaign.name",
+  "ad_group.id",
+  "ad_group.name",
+  "ad_group_criterion.criterion_id",
+  "ad_group_criterion.keyword.text",
+  "ad_group_criterion.keyword.match_type",
+  "ad_group_criterion.status",
+  "ad_group_criterion.quality_info.quality_score",
+  "metrics.impressions",
+  "metrics.clicks",
+  "metrics.cost_micros",
+  "metrics.conversions",
+  "metrics.conversions_value",
+  "metrics.search_impression_share",
+];
+
+function renderKeywordInsightRow(row: GaqlRow): string {
+  const campaign = row.campaign as Record<string, unknown> | undefined;
+  const adGroup = row.adGroup as Record<string, unknown> | undefined;
+  const criterion = row.adGroupCriterion as Record<string, unknown> | undefined;
+  const keyword = criterion?.keyword as Record<string, unknown> | undefined;
+  const qualityInfo = criterion?.qualityInfo as Record<string, unknown> | undefined;
+  const m = row.metrics as Record<string, unknown> | undefined;
+  const sis = m?.searchImpressionShare;
+  return [
+    `## "${keyword?.text ?? "n/a"}" (${keyword?.matchType ?? "n/a"}) — \`${criterion?.criterionId ?? "n/a"}\``,
+    `- **Campaign**: ${campaign?.name ?? "n/a"} (\`${campaign?.id ?? "n/a"}\`) · **Ad group**: ${adGroup?.name ?? "n/a"} (\`${adGroup?.id ?? "n/a"}\`)`,
+    `- **Status**: ${criterion?.status ?? "n/a"} · **Quality Score**: ${qualityInfo?.qualityScore ?? "n/a"}`,
+    `- **Impressions**: ${m?.impressions ?? "0"} · **Clicks**: ${m?.clicks ?? "0"} · **Cost**: ${microsToUnits(m?.costMicros)}`,
+    `- **Conversions**: ${m?.conversions ?? "0"} (value: ${m?.conversionsValue ?? "0"}) · **Search Impr. Share**: ${
+      typeof sis === "number" || typeof sis === "string" ? `${(Number(sis) * 100).toFixed(2)}%` : "n/a"
+    }`,
+  ].join("\n");
+}
+
+const SEARCH_TERM_INSIGHT_FIELDS = [
+  "search_term_view.search_term",
+  "search_term_view.status",
+  "campaign.id",
+  "campaign.name",
+  "ad_group.id",
+  "ad_group.name",
+  "metrics.impressions",
+  "metrics.clicks",
+  "metrics.cost_micros",
+  "metrics.conversions",
+];
+
+function renderSearchTermInsightRow(row: GaqlRow): string {
+  const stv = row.searchTermView as Record<string, unknown> | undefined;
+  const campaign = row.campaign as Record<string, unknown> | undefined;
+  const adGroup = row.adGroup as Record<string, unknown> | undefined;
+  const m = row.metrics as Record<string, unknown> | undefined;
+  return [
+    `## "${stv?.searchTerm ?? "n/a"}" — ${stv?.status ?? "n/a"}`,
+    `- **Campaign**: ${campaign?.name ?? "n/a"} (\`${campaign?.id ?? "n/a"}\`) · **Ad group**: ${adGroup?.name ?? "n/a"} (\`${adGroup?.id ?? "n/a"}\`)`,
+    `- **Impressions**: ${m?.impressions ?? "0"} · **Clicks**: ${m?.clicks ?? "0"} · **Cost**: ${microsToUnits(m?.costMicros)} · **Conversions**: ${m?.conversions ?? "0"}`,
   ].join("\n");
 }
 
@@ -123,6 +206,106 @@ Error Handling:
         }
 
         const markdown = [`# Insights (${paged.count} rows)`, "", ...paged.items.map(renderInsightRow)].join("\n\n");
+        return buildResponse(pagedJson(paged), markdown, params.response_format);
+      } catch (error) {
+        return errorResponse(handleGoogleAdsError(error));
+      }
+    }
+  );
+
+  server.registerTool(
+    "google_ads_get_keyword_insights",
+    {
+      title: "Get Google Ads Keyword Insights",
+      description: `Fetch keyword-level performance via GAQL's keyword_view — impressions, clicks, cost, conversions, Quality Score, and search impression share per keyword, over a date range.
+
+Read-only.
+
+Args:
+  - campaign_id (string, optional): scope to one campaign. Omit to report across the whole account.
+  - ad_group_id (string, optional): scope to one ad group.
+  - date_preset (string, optional): one of TODAY, YESTERDAY, LAST_7_DAYS, LAST_14_DAYS, LAST_30_DAYS, THIS_MONTH, LAST_MONTH. Provide this OR since+until.
+  - since / until (string, optional): custom range as 'YYYY-MM-DD'. Provide both together.
+  - limit (number, default 25, max 100)
+  - after (string, optional): pagination cursor
+  - response_format ('markdown'|'json', default markdown)
+
+Returns rows sorted by clicks descending, one per keyword. Quality Score is only populated once Google has enough data for that keyword — expect "n/a" for newer or low-volume keywords. Cost comes back in micros from the API; the markdown view converts it to units, the json view does not.
+
+Don't use when: you want the account/campaign/ad group/ad rollup — use google_ads_get_insights instead. Don't use when: you want to see what people actually searched before matching to your keywords — use google_ads_get_search_term_insights instead.
+
+Error Handling:
+  - Returns an error if neither date_preset nor since+until is provided`,
+      inputSchema: GetKeywordInsightsInputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (params: GetKeywordInsightsInput) => {
+      try {
+        const dc = dateCondition(params);
+        if ("error" in dc) return errorResponse(dc.error);
+
+        const conditions: string[] = [dc.condition];
+        if (params.campaign_id) conditions.push(`campaign.id = ${Number(params.campaign_id)}`);
+        if (params.ad_group_id) conditions.push(`ad_group.id = ${Number(params.ad_group_id)}`);
+
+        const query = `SELECT ${KEYWORD_INSIGHT_FIELDS.join(", ")} FROM keyword_view WHERE ${conditions.join(" AND ")} ORDER BY metrics.clicks DESC`;
+
+        const paged = await searchPaged(query, params.limit, params.after, params.customer_id);
+        if (!paged.items.length) {
+          return { content: [{ type: "text" as const, text: "No keyword insights data found for the given range/filters." }] };
+        }
+
+        const markdown = [`# Keyword Insights (${paged.count} rows)`, "", ...paged.items.map(renderKeywordInsightRow)].join("\n\n");
+        return buildResponse(pagedJson(paged), markdown, params.response_format);
+      } catch (error) {
+        return errorResponse(handleGoogleAdsError(error));
+      }
+    }
+  );
+
+  server.registerTool(
+    "google_ads_get_search_term_insights",
+    {
+      title: "Get Google Ads Search Term Insights",
+      description: `Fetch the actual search terms that triggered your ads via GAQL's search_term_view — impressions, clicks, cost, and conversions per search term, over a date range. This is the raw queries people typed, before matching to your keywords; use it to find new keyword candidates or terms to add as negatives.
+
+Read-only.
+
+Args:
+  - campaign_id (string, optional): scope to one campaign. Omit to report across the whole account.
+  - ad_group_id (string, optional): scope to one ad group.
+  - date_preset (string, optional): one of TODAY, YESTERDAY, LAST_7_DAYS, LAST_14_DAYS, LAST_30_DAYS, THIS_MONTH, LAST_MONTH. Provide this OR since+until.
+  - since / until (string, optional): custom range as 'YYYY-MM-DD'. Provide both together.
+  - limit (number, default 25, max 100)
+  - after (string, optional): pagination cursor
+  - response_format ('markdown'|'json', default markdown)
+
+Returns rows sorted by clicks descending, one per search term/ad group combination. Cost comes back in micros from the API; the markdown view converts it to units, the json view does not.
+
+Don't use when: you want keyword-level performance (Quality Score, search impression share) for terms you're already targeting — use google_ads_get_keyword_insights instead.
+
+Error Handling:
+  - Returns an error if neither date_preset nor since+until is provided`,
+      inputSchema: GetSearchTermInsightsInputSchema,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (params: GetSearchTermInsightsInput) => {
+      try {
+        const dc = dateCondition(params);
+        if ("error" in dc) return errorResponse(dc.error);
+
+        const conditions: string[] = [dc.condition];
+        if (params.campaign_id) conditions.push(`campaign.id = ${Number(params.campaign_id)}`);
+        if (params.ad_group_id) conditions.push(`ad_group.id = ${Number(params.ad_group_id)}`);
+
+        const query = `SELECT ${SEARCH_TERM_INSIGHT_FIELDS.join(", ")} FROM search_term_view WHERE ${conditions.join(" AND ")} ORDER BY metrics.clicks DESC`;
+
+        const paged = await searchPaged(query, params.limit, params.after, params.customer_id);
+        if (!paged.items.length) {
+          return { content: [{ type: "text" as const, text: "No search term insights data found for the given range/filters." }] };
+        }
+
+        const markdown = [`# Search Term Insights (${paged.count} rows)`, "", ...paged.items.map(renderSearchTermInsightRow)].join("\n\n");
         return buildResponse(pagedJson(paged), markdown, params.response_format);
       } catch (error) {
         return errorResponse(handleGoogleAdsError(error));

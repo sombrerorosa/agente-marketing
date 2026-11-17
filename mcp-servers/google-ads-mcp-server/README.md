@@ -182,7 +182,12 @@ is immutable once created), `google_ads_delete_ad`.
 `google_ads_delete_user_list`.
 
 **Insights** — `google_ads_get_insights`: GAQL-backed performance reporting
-at the account/campaign/ad-group/ad level.
+at the account/campaign/ad-group/ad level. `google_ads_get_keyword_insights`:
+keyword-level performance (impressions, clicks, cost, conversions, Quality
+Score, search impression share) via `keyword_view`.
+`google_ads_get_search_term_insights`: the actual search terms that
+triggered your ads via `search_term_view` — for finding new keyword
+candidates or negatives.
 
 **Ad schedule (dayparting)** — `google_ads_add_campaign_ad_schedule`,
 `google_ads_list_campaign_ad_schedule`,

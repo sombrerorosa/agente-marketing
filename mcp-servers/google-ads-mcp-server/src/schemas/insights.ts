@@ -37,4 +37,32 @@ export const GetInsightsInputSchema = z
   .strict();
 export type GetInsightsInput = z.infer<typeof GetInsightsInputSchema>;
 
+export const GetKeywordInsightsInputSchema = z
+  .object({
+    campaign_id: z.string().optional().describe("Scope to one campaign. Omit to report across the whole account."),
+    ad_group_id: z.string().optional().describe("Scope to one ad group."),
+    date_preset: DatePresetEnum.optional().describe("Relative date range. Provide this OR since/until, not both."),
+    since: z.string().optional().describe("Custom range start, 'YYYY-MM-DD'. Requires until."),
+    until: z.string().optional().describe("Custom range end, 'YYYY-MM-DD'. Requires since."),
+    ...paginationFields,
+    customer_id: customerIdField,
+    response_format: responseFormatField,
+  })
+  .strict();
+export type GetKeywordInsightsInput = z.infer<typeof GetKeywordInsightsInputSchema>;
+
+export const GetSearchTermInsightsInputSchema = z
+  .object({
+    campaign_id: z.string().optional().describe("Scope to one campaign. Omit to report across the whole account."),
+    ad_group_id: z.string().optional().describe("Scope to one ad group."),
+    date_preset: DatePresetEnum.optional().describe("Relative date range. Provide this OR since/until, not both."),
+    since: z.string().optional().describe("Custom range start, 'YYYY-MM-DD'. Requires until."),
+    until: z.string().optional().describe("Custom range end, 'YYYY-MM-DD'. Requires since."),
+    ...paginationFields,
+    customer_id: customerIdField,
+    response_format: responseFormatField,
+  })
+  .strict();
+export type GetSearchTermInsightsInput = z.infer<typeof GetSearchTermInsightsInputSchema>;
+
 export { DEFAULT_METRICS };
