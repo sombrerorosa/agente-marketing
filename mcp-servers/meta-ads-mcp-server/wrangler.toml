@@ -22,3 +22,6 @@ head_sampling_rate = 1
 # as Secrets in the Cloudflare dashboard (Workers & Pages > this Worker >
 # Settings > Variables and Secrets), or via `wrangler secret put <NAME>`.
 # Never commit real values for them to this file or anywhere in the repo.
+
+# MCP_AUTH_TOKEN (required) is the shared secret every caller must present —
+# also a Secret, never a plain var. Generate one with `openssl rand -hex 32`.

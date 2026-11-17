@@ -19,6 +19,11 @@ const DEFAULT_METRICS = [
   "metrics.conversions_value",
 ];
 
+// since/until and metrics are interpolated into the GAQL query text, so
+// they're restricted to their exact expected shape rather than free strings.
+const dateField = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected 'YYYY-MM-DD'");
+const metricField = z.string().regex(/^[a-z_]+(\.[a-z0-9_]+)+$/, "Expected a GAQL field name, e.g. 'metrics.impressions'");
+
 export const GetInsightsInputSchema = z
   .object({
     level: LevelEnum.default("campaign").describe("Output granularity — which resource each row represents. 'account' has no further scoping below."),
@@ -26,9 +31,9 @@ export const GetInsightsInputSchema = z
     ad_group_id: z.string().optional().describe("Scope to one ad group. Valid only when level is 'ad_group' or 'ad'."),
     ad_id: z.string().optional().describe("Scope to one ad. Requires ad_group_id, and only valid when level is 'ad'."),
     date_preset: DatePresetEnum.optional().describe("Relative date range. Provide this OR since/until, not both."),
-    since: z.string().optional().describe("Custom range start, 'YYYY-MM-DD'. Requires until."),
-    until: z.string().optional().describe("Custom range end, 'YYYY-MM-DD'. Requires since."),
-    metrics: z.array(z.string()).optional().describe(`Metric fields to return, e.g. 'metrics.impressions'. Defaults to: ${DEFAULT_METRICS.join(", ")}.`),
+    since: dateField.optional().describe("Custom range start, 'YYYY-MM-DD'. Requires until."),
+    until: dateField.optional().describe("Custom range end, 'YYYY-MM-DD'. Requires since."),
+    metrics: z.array(metricField).max(50).optional().describe(`Metric fields to return, e.g. 'metrics.impressions'. Defaults to: ${DEFAULT_METRICS.join(", ")}.`),
     breakdowns: z.array(BreakdownEnum).optional().describe("Split results by segment, e.g. ['device']. At most 2 recommended to avoid combinatorial blowup."),
     ...paginationFields,
     customer_id: customerIdField,

@@ -91,7 +91,7 @@ Error Handling:
           conditions.push(`campaign.status IN (${params.status_filter.map((s) => `'${s}'`).join(",")})`);
         }
         if (params.name_contains) {
-          conditions.push(`campaign.name LIKE '%${params.name_contains.replace(/'/g, "\\'")}%'`);
+          conditions.push(`campaign.name LIKE '%${params.name_contains.replace(/[\\']/g, "\\$&")}%'`);
         }
 
         const query = `SELECT ${CAMPAIGN_FIELDS.join(", ")} FROM campaign${

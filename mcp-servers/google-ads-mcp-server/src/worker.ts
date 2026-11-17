@@ -8,6 +8,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createMcpHandler } from "agents/mcp";
+import { authorize } from "./services/auth.js";
 import { registerAdGroupTools } from "./tools/adgroups.js";
 import { registerAdTools } from "./tools/ads.js";
 import { registerAudienceTools } from "./tools/audiences.js";
@@ -18,6 +19,7 @@ import { registerSchedulingTools } from "./tools/scheduling.js";
 import { registerUtilityTools } from "./tools/utility.js";
 
 interface Env {
+  MCP_AUTH_TOKEN: string;
   GOOGLE_ADS_CLIENT_ID: string;
   GOOGLE_ADS_CLIENT_SECRET: string;
   GOOGLE_ADS_REFRESH_TOKEN: string;
@@ -43,6 +45,11 @@ function buildServer(): McpServer {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // Nothing below runs for a caller that hasn't presented MCP_AUTH_TOKEN —
+    // see services/auth.ts.
+    const auth = await authorize(request, env.MCP_AUTH_TOKEN);
+    if (!auth.ok) return auth.response;
+
     const missing = REQUIRED_ENV_KEYS.filter((key) => !env[key]);
     if (missing.length) {
       return new Response(
@@ -70,6 +77,6 @@ export default {
     // right trade for correctness here.
     const server = buildServer();
     const handleMcpRequest = createMcpHandler(server, { route: "/mcp", enableJsonResponse: true });
-    return handleMcpRequest(request, env, ctx);
+    return handleMcpRequest(auth.request, env, ctx);
   },
 };

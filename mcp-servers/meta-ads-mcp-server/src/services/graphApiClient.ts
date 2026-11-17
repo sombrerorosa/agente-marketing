@@ -102,7 +102,17 @@ interface RequestOptions {
   accessToken?: string;
 }
 
+// Object IDs from tool input are interpolated into the endpoint path. Every
+// endpoint this server calls is "/<id>" or "/<id>/<edge>", so anything else
+// (extra segments, "?", "..", "#") is a malformed or hostile ID, not a
+// request worth sending with the System User token attached.
+const SAFE_ENDPOINT = /^\/[A-Za-z0-9_]+(\/[a-z_]+)?$/;
+
 function buildUrl(endpoint: string, params: Record<string, unknown>): URL {
+  const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  if (!SAFE_ENDPOINT.test(path)) {
+    throw new Error("Invalid object ID — expected only letters, digits and underscores.");
+  }
   const url = new URL(`${GRAPH_API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`);
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null) continue;

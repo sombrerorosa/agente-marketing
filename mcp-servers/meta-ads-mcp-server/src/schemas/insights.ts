@@ -28,8 +28,8 @@ export const GetInsightsInputSchema = z
       .describe("Campaign, ad set, or ad ID to scope the report to. Omit to report on the whole ad account (requires 'level')."),
     level: LevelEnum.default("campaign").describe("Aggregation level. Required (and used as-is) when object_id is omitted; when object_id is set, it controls whether results are rolled up or broken out by child objects."),
     date_preset: DatePresetEnum.optional().describe("Relative date range, e.g. 'last_30d'. Provide this OR since/until, not both."),
-    since: z.string().optional().describe("Custom range start, 'YYYY-MM-DD'. Requires until."),
-    until: z.string().optional().describe("Custom range end, 'YYYY-MM-DD'. Requires since."),
+    since: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected 'YYYY-MM-DD'").optional().describe("Custom range start, 'YYYY-MM-DD'. Requires until."),
+    until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected 'YYYY-MM-DD'").optional().describe("Custom range end, 'YYYY-MM-DD'. Requires since."),
     fields: z
       .array(z.string())
       .optional()

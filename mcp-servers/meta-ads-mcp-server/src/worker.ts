@@ -8,6 +8,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createMcpHandler } from "agents/mcp";
+import { authorize } from "./services/auth.js";
 import { registerAdSetTools } from "./tools/adsets.js";
 import { registerAdTools } from "./tools/ads.js";
 import { registerAudienceTools } from "./tools/audiences.js";
@@ -19,6 +20,7 @@ import { registerOrganicInstagramTools } from "./tools/organicInstagram.js";
 import { registerUtilityTools } from "./tools/utility.js";
 
 interface Env {
+  MCP_AUTH_TOKEN: string;
   META_ACCESS_TOKEN: string;
   META_AD_ACCOUNT_ID: string;
 }
@@ -39,6 +41,11 @@ function buildServer(): McpServer {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // Nothing below runs for a caller that hasn't presented MCP_AUTH_TOKEN —
+    // see services/auth.ts.
+    const auth = await authorize(request, env.MCP_AUTH_TOKEN);
+    if (!auth.ok) return auth.response;
+
     if (!env.META_ACCESS_TOKEN || !env.META_AD_ACCOUNT_ID) {
       return new Response(
         "Missing META_ACCESS_TOKEN or META_AD_ACCOUNT_ID. Set them as Secrets in the Worker's Settings > Variables and Secrets.",
@@ -64,6 +71,6 @@ export default {
     // trade for correctness here.
     const server = buildServer();
     const handleMcpRequest = createMcpHandler(server, { route: "/mcp", enableJsonResponse: true });
-    return handleMcpRequest(request, env, ctx);
+    return handleMcpRequest(auth.request, env, ctx);
   },
 };

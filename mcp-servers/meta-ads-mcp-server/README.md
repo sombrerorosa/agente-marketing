@@ -86,12 +86,18 @@ no CLI, no local Node install. It redeploys automatically on every push.
    (encrypted, not plain vars):
    - `META_ACCESS_TOKEN`
    - `META_AD_ACCOUNT_ID`
+   - `MCP_AUTH_TOKEN` — the shared secret callers must present. Generate
+     one with `openssl rand -hex 32` (at least 32 characters). **The Worker
+     refuses every request until this is set.**
 5. Deploy. Cloudflare gives you a URL like
    `https://meta-ads-mcp-server.<your-subdomain>.workers.dev`. The MCP
    endpoint is that URL + `/mcp`.
 6. Add it as a custom connector wherever you want to use it (e.g. claude.ai
-   → Settings → Connectors → Add custom connector), pointing at the `/mcp`
-   URL.
+   → Settings → Connectors → Add custom connector). Every request must
+   carry `MCP_AUTH_TOKEN`: send it as an `Authorization: Bearer <token>`
+   header, or — for clients that only take a URL — append it to the path:
+   `…/mcp/<token>`. A URL with the token in it is itself a secret: don't
+   paste it into docs, chats or tickets.
 
 To test the bundle locally without deploying (no Cloudflare account/network
 needed — this only runs esbuild):

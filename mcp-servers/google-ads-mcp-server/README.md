@@ -133,12 +133,18 @@ no CLI, no local Node install. It redeploys automatically on every push.
    `GOOGLE_ADS_CLIENT_SECRET`, `GOOGLE_ADS_REFRESH_TOKEN`,
    `GOOGLE_ADS_CUSTOMER_ID`, and `GOOGLE_ADS_LOGIN_CUSTOMER_ID` /
    `GOOGLE_ADS_DEVELOPER_TOKEN` if you need them.
+   Also add `MCP_AUTH_TOKEN` — the shared secret callers must present.
+   Generate one with `openssl rand -hex 32` (at least 32 characters). **The
+   Worker refuses every request until this is set.**
 5. Deploy. Cloudflare gives you a URL like
    `https://google-ads-mcp-server.<your-subdomain>.workers.dev`. The MCP
    endpoint is that URL + `/mcp`.
 6. Add it as a custom connector wherever you want to use it (e.g. claude.ai
-   → Settings → Connectors → Add custom connector), pointing at the `/mcp`
-   URL. Pick a distinct Worker name from any other MCP server you've already
+   → Settings → Connectors → Add custom connector). Every request must
+   carry `MCP_AUTH_TOKEN`: send it as an `Authorization: Bearer <token>`
+   header, or — for clients that only take a URL — append it to the path:
+   `…/mcp/<token>`. A URL with the token in it is itself a secret: don't
+   paste it into docs, chats or tickets. Pick a distinct Worker name from any other MCP server you've already
    deployed in this repo (e.g. the Meta Ads one) — each needs its own URL.
 
 To test the bundle locally without deploying (no Cloudflare account/network
