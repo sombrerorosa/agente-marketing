@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { paginationFields, responseFormatField } from "./common.js";
+import { adAccountIdField, paginationFields, responseFormatField } from "./common.js";
 
 export const CallToActionEnum = z.enum([
   "SHOP_NOW",
@@ -19,6 +19,7 @@ export const CallToActionEnum = z.enum([
 export const UploadImageInputSchema = z
   .object({
     image_url: z.string().url().describe("Publicly reachable HTTPS URL — Meta fetches it server-side. Use a hosted asset (e.g. from Canva/Higgsfield output) rather than a local file."),
+    ad_account_id: adAccountIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -28,6 +29,7 @@ export const UploadVideoInputSchema = z
   .object({
     video_url: z.string().url().describe("Publicly reachable HTTPS URL — Meta fetches it server-side."),
     name: z.string().optional().describe("Display name for the video asset in Meta's Ads Manager library."),
+    ad_account_id: adAccountIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -49,6 +51,7 @@ export const CreateAdCreativeInputSchema = z
       .optional()
       .describe("Required when video_id is set — thumbnail shown before playback, from meta_ads_upload_image."),
     instagram_actor_id: z.string().optional().describe("Instagram Business Account ID, to also run this creative on Instagram placements."),
+    ad_account_id: adAccountIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -56,6 +59,7 @@ export type CreateAdCreativeInput = z.infer<typeof CreateAdCreativeInputSchema>;
 
 export const ListAdCreativesInputSchema = z
   .object({
+    ad_account_id: adAccountIdField,
     ...paginationFields,
     response_format: responseFormatField,
   })

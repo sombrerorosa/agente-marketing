@@ -59,7 +59,7 @@ Returns paginated ads with id, name, status, adset_id, and the linked creative i
           ? `/${params.adset_id}/ads`
           : params.campaign_id
             ? `/${params.campaign_id}/ads`
-            : `/${getAdAccountId()}/ads`;
+            : `/${getAdAccountId(params.ad_account_id)}/ads`;
         const paged = await listPaged<Ad>(
           endpoint,
           { fields: AD_FIELDS, ...(filtering.length ? { filtering: JSON.stringify(filtering) } : {}) },
@@ -119,7 +119,7 @@ Don't use when: you don't have a creative_id yet — call meta_ads_upload_image/
     },
     async (params: CreateAdInput) => {
       try {
-        const created = await graphRequest<{ id: string }>(`/${getAdAccountId()}/ads`, {
+        const created = await graphRequest<{ id: string }>(`/${getAdAccountId(params.ad_account_id)}/ads`, {
           method: "POST",
           params: {
             name: params.name,

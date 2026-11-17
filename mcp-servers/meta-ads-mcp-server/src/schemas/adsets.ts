@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { paginationFields, responseFormatField, EffectiveStatusEnum } from "./common.js";
+import { adAccountIdField, paginationFields, responseFormatField, EffectiveStatusEnum } from "./common.js";
 
 export const TargetingSchema = z
   .object({
@@ -47,6 +47,7 @@ export const ListAdSetsInputSchema = z
   .object({
     campaign_id: z.string().optional().describe("Filter to ad sets belonging to this campaign. Omit to list across the whole ad account."),
     status_filter: z.array(EffectiveStatusEnum).optional(),
+    ad_account_id: adAccountIdField,
     ...paginationFields,
     response_format: responseFormatField,
   })
@@ -86,6 +87,7 @@ export const CreateAdSetInputSchema = z
       .describe(
         "Required when optimization_goal is OFFSITE_CONVERSIONS or APP_INSTALLS, e.g. { pixel_id: '...', custom_event_type: 'PURCHASE' } or { application_id: '...', object_store_url: '...' }."
       ),
+    ad_account_id: adAccountIdField,
     response_format: responseFormatField,
   })
   .strict();

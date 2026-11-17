@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { paginationFields, responseFormatField, EffectiveStatusEnum } from "./common.js";
+import { adAccountIdField, paginationFields, responseFormatField, EffectiveStatusEnum } from "./common.js";
 
 export const ObjectiveEnum = z.enum([
   "OUTCOME_AWARENESS",
@@ -20,6 +20,7 @@ export const ListCampaignsInputSchema = z
       .string()
       .optional()
       .describe("Case-insensitive substring filter on campaign name, applied client-side."),
+    ad_account_id: adAccountIdField,
     ...paginationFields,
     response_format: responseFormatField,
   })
@@ -71,6 +72,7 @@ export const CreateCampaignInputSchema = z
       .describe(
         "Required by Meta for regulatory compliance. Use NONE unless this campaign advertises housing, employment, credit, or social issues/elections — those categories have restricted targeting."
       ),
+    ad_account_id: adAccountIdField,
     response_format: responseFormatField,
   })
   .strict();

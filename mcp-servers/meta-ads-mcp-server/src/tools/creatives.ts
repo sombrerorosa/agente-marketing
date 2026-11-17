@@ -45,7 +45,7 @@ Error Handling:
     },
     async (params: UploadImageInput) => {
       try {
-        const endpoint = `/${getAdAccountId()}/adimages`;
+        const endpoint = `/${getAdAccountId(params.ad_account_id)}/adimages`;
         const response = await graphRequest<{ images: Record<string, { hash: string; url: string }> }>(endpoint, {
           method: "POST",
           params: { url: params.image_url },
@@ -86,7 +86,7 @@ Don't use when: the asset is a still image — use meta_ads_upload_image instead
     },
     async (params: UploadVideoInput) => {
       try {
-        const endpoint = `/${getAdAccountId()}/advideos`;
+        const endpoint = `/${getAdAccountId(params.ad_account_id)}/advideos`;
         const titleField: Record<string, string> = params.name ? { title: params.name } : {};
         const response = await graphRequest<{ id: string }>(endpoint, {
           method: "POST",
@@ -142,7 +142,7 @@ Error Handling:
         }
 
         const objectStorySpec = buildObjectStorySpec(params);
-        const created = await graphRequest<{ id: string }>(`/${getAdAccountId()}/adcreatives`, {
+        const created = await graphRequest<{ id: string }>(`/${getAdAccountId(params.ad_account_id)}/adcreatives`, {
           method: "POST",
           params: { name: params.name, object_story_spec: JSON.stringify(objectStorySpec) },
         });
@@ -174,7 +174,7 @@ Args:
     },
     async (params: ListAdCreativesInput) => {
       try {
-        const paged = await listPaged<AdCreative>(`/${getAdAccountId()}/adcreatives`, { fields: CREATIVE_FIELDS }, params.limit);
+        const paged = await listPaged<AdCreative>(`/${getAdAccountId(params.ad_account_id)}/adcreatives`, { fields: CREATIVE_FIELDS }, params.limit);
         if (!paged.items.length) {
           return { content: [{ type: "text" as const, text: "No ad creatives found in this ad account." }] };
         }

@@ -11,6 +11,13 @@ export const responseFormatField = z
   .default(ResponseFormat.MARKDOWN)
   .describe("Output format: 'markdown' for human-readable or 'json' for machine-readable");
 
+export const adAccountIdField = z
+  .string()
+  .optional()
+  .describe(
+    "Override META_AD_ACCOUNT_ID for this call — the ID of a different ad account this System User can access (with or without the 'act_' prefix), e.g. to manage a client account without redeploying."
+  );
+
 export const paginationFields = {
   limit: z
     .number()

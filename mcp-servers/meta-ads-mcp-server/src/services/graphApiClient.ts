@@ -27,9 +27,9 @@ export function getAccessToken(): string {
   return token;
 }
 
-/** Returns the ad account ID with the required "act_" prefix. */
-export function getAdAccountId(): string {
-  const id = process.env.META_AD_ACCOUNT_ID;
+/** Returns the ad account ID with the required "act_" prefix. `override` lets a single call target a different ad account than META_AD_ACCOUNT_ID. */
+export function getAdAccountId(override?: string): string {
+  const id = override || process.env.META_AD_ACCOUNT_ID;
   if (!id) {
     throw new Error("META_AD_ACCOUNT_ID environment variable is not set.");
   }

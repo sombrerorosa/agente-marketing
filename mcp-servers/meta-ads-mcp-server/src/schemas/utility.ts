@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { paginationFields, responseFormatField } from "./common.js";
+import { adAccountIdField, paginationFields, responseFormatField } from "./common.js";
 
 export const GetAdAccountInputSchema = z
   .object({
+    ad_account_id: adAccountIdField,
     response_format: responseFormatField,
   })
   .strict();

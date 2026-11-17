@@ -59,7 +59,7 @@ Returns paginated ad sets with id, name, status, campaign_id, budget, optimizati
         if (params.status_filter?.length) {
           filtering.push({ field: "effective_status", operator: "IN", value: params.status_filter });
         }
-        const endpoint = params.campaign_id ? `/${params.campaign_id}/adsets` : `/${getAdAccountId()}/adsets`;
+        const endpoint = params.campaign_id ? `/${params.campaign_id}/adsets` : `/${getAdAccountId(params.ad_account_id)}/adsets`;
         const paged = await listPaged<AdSet>(
           endpoint,
           { fields: ADSET_FIELDS, ...(filtering.length ? { filtering: JSON.stringify(filtering) } : {}) },
@@ -136,7 +136,7 @@ Error Handling:
           return errorResponse(`Error: bid_amount_cents is required when bid_strategy is '${params.bid_strategy}'.`);
         }
 
-        const created = await graphRequest<{ id: string }>(`/${getAdAccountId()}/adsets`, {
+        const created = await graphRequest<{ id: string }>(`/${getAdAccountId(params.ad_account_id)}/adsets`, {
           method: "POST",
           params: {
             name: params.name,

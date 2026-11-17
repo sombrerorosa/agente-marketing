@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { paginationFields, responseFormatField } from "./common.js";
+import { adAccountIdField, paginationFields, responseFormatField } from "./common.js";
 
 export const LevelEnum = z.enum(["account", "campaign", "adset", "ad"]);
 
@@ -35,6 +35,7 @@ export const GetInsightsInputSchema = z
       .optional()
       .describe(`Metrics to return. Defaults to: ${DEFAULT_FIELDS.join(", ")}. See Meta's Ads Insights API reference for the full field list.`),
     breakdowns: z.array(BreakdownEnum).optional().describe("Split results by dimension, e.g. ['age','gender']. At most 2 recommended."),
+    ad_account_id: adAccountIdField,
     ...paginationFields,
     response_format: responseFormatField,
   })

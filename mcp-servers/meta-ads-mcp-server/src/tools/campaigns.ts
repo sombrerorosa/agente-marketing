@@ -70,7 +70,7 @@ Error Handling:
         }
 
         const paged = await listPaged<Campaign>(
-          `/${getAdAccountId()}/campaigns`,
+          `/${getAdAccountId(params.ad_account_id)}/campaigns`,
           {
             fields: CAMPAIGN_FIELDS,
             ...(filtering.length ? { filtering: JSON.stringify(filtering) } : {}),
@@ -155,7 +155,7 @@ Error Handling:
             "Error: is_adset_budget_sharing_enabled is required when daily_budget_cents or lifetime_budget_cents is set. Pass true or false."
           );
         }
-        const created = await graphRequest<{ id: string }>(`/${getAdAccountId()}/campaigns`, {
+        const created = await graphRequest<{ id: string }>(`/${getAdAccountId(params.ad_account_id)}/campaigns`, {
           method: "POST",
           params: {
             name: params.name,

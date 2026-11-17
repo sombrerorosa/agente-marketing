@@ -93,6 +93,13 @@ no CLI, no local Node install. It redeploys automatically on every push.
    → Settings → Connectors → Add custom connector), pointing at the `/mcp`
    URL.
 
+`META_AD_ACCOUNT_ID` is the default ad account, but every paid-media tool
+(campaigns, ad sets, ads, creatives, audiences, insights, image/video
+uploads) also accepts an optional `ad_account_id` argument to target a
+different ad account this same System User can access for that one call —
+mirroring `customer_id` on the Google Ads connector. Useful for an agency
+managing several clients' ad accounts from one deployed server.
+
 To test the bundle locally without deploying (no Cloudflare account/network
 needed — this only runs esbuild):
 

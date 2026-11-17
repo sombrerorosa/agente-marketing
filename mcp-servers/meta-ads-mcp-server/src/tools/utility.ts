@@ -61,7 +61,7 @@ Error Handling:
     },
     async (params: GetAdAccountInput) => {
       try {
-        const account = await graphRequest<AdAccount>(`/${getAdAccountId()}`, { params: { fields: AD_ACCOUNT_FIELDS } });
+        const account = await graphRequest<AdAccount>(`/${getAdAccountId(params.ad_account_id)}`, { params: { fields: AD_ACCOUNT_FIELDS } });
         const markdown = [
           `## ${account.name ?? account.id} (\`${account.id}\`)`,
           `- **Status code**: ${account.account_status ?? "n/a"}`,

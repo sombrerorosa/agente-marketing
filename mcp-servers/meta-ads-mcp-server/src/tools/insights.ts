@@ -67,7 +67,7 @@ Error Handling:
           return errorResponse("Error: Provide either date_preset or since/until, not both.");
         }
 
-        const endpoint = params.object_id ? `/${params.object_id}/insights` : `/${getAdAccountId()}/insights`;
+        const endpoint = params.object_id ? `/${params.object_id}/insights` : `/${getAdAccountId(params.ad_account_id)}/insights`;
         const dateParams = params.date_preset
           ? { date_preset: params.date_preset }
           : { time_range: JSON.stringify({ since: params.since, until: params.until }) };

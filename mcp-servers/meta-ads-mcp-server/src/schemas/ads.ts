@@ -1,11 +1,12 @@
 import { z } from "zod";
-import { paginationFields, responseFormatField, EffectiveStatusEnum } from "./common.js";
+import { adAccountIdField, paginationFields, responseFormatField, EffectiveStatusEnum } from "./common.js";
 
 export const ListAdsInputSchema = z
   .object({
     adset_id: z.string().optional().describe("Filter to ads belonging to this ad set."),
     campaign_id: z.string().optional().describe("Filter to ads belonging to this campaign. Ignored if adset_id is also provided."),
     status_filter: z.array(EffectiveStatusEnum).optional(),
+    ad_account_id: adAccountIdField,
     ...paginationFields,
     response_format: responseFormatField,
   })
@@ -26,6 +27,7 @@ export const CreateAdInputSchema = z
     adset_id: z.string().min(1),
     creative_id: z.string().min(1).describe("Ad Creative ID from meta_ads_create_ad_creative."),
     status: z.enum(["ACTIVE", "PAUSED"]).default("PAUSED"),
+    ad_account_id: adAccountIdField,
     response_format: responseFormatField,
   })
   .strict();

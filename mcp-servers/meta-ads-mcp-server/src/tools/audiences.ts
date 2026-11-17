@@ -53,7 +53,7 @@ Don't use when: you want an audience modeled on an existing one — use meta_ads
     },
     async (params: CreateCustomAudienceInput) => {
       try {
-        const created = await graphRequest<{ id: string }>(`/${getAdAccountId()}/customaudiences`, {
+        const created = await graphRequest<{ id: string }>(`/${getAdAccountId(params.ad_account_id)}/customaudiences`, {
           method: "POST",
           params: {
             name: params.name,
@@ -94,7 +94,7 @@ Error Handling:
     },
     async (params: CreateLookalikeAudienceInput) => {
       try {
-        const created = await graphRequest<{ id: string }>(`/${getAdAccountId()}/customaudiences`, {
+        const created = await graphRequest<{ id: string }>(`/${getAdAccountId(params.ad_account_id)}/customaudiences`, {
           method: "POST",
           params: {
             name: params.name,
@@ -133,7 +133,7 @@ Returns paginated audiences with id, name, subtype, estimated size, and status.`
     },
     async (params: ListAudiencesInput) => {
       try {
-        const paged = await listPaged<AudienceRef>(`/${getAdAccountId()}/customaudiences`, { fields: AUDIENCE_FIELDS }, params.limit);
+        const paged = await listPaged<AudienceRef>(`/${getAdAccountId(params.ad_account_id)}/customaudiences`, { fields: AUDIENCE_FIELDS }, params.limit);
         if (!paged.items.length) {
           return { content: [{ type: "text" as const, text: "No audiences found in this ad account." }] };
         }

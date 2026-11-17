@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { paginationFields, responseFormatField } from "./common.js";
+import { adAccountIdField, paginationFields, responseFormatField } from "./common.js";
 
 export const CreateCustomAudienceInputSchema = z
   .object({
@@ -9,6 +9,7 @@ export const CreateCustomAudienceInputSchema = z
       .enum(["USER_PROVIDED_ONLY", "PARTNER_PROVIDED_ONLY", "BOTH_USER_AND_PARTNER_PROVIDED"])
       .default("USER_PROVIDED_ONLY")
       .describe("How the data in this audience was collected — required by Meta for data-source disclosure."),
+    ad_account_id: adAccountIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -25,6 +26,7 @@ export const CreateLookalikeAudienceInputSchema = z
       .max(0.2)
       .default(0.05)
       .describe("Audience size as a fraction of the country's population, from 0.01 (closest match, smallest) to 0.20 (broadest)."),
+    ad_account_id: adAccountIdField,
     response_format: responseFormatField,
   })
   .strict();
@@ -32,6 +34,7 @@ export type CreateLookalikeAudienceInput = z.infer<typeof CreateLookalikeAudienc
 
 export const ListAudiencesInputSchema = z
   .object({
+    ad_account_id: adAccountIdField,
     ...paginationFields,
     response_format: responseFormatField,
   })
