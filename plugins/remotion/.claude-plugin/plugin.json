@@ -1,0 +1,7 @@
+{
+  "name": "remotion",
+  "version": "1.0.0",
+  "description": "Official Remotion skills: create, caption, render and maintain videos made with React. Remotion is free for individuals and companies of up to 3 employees; larger companies need a license.",
+  "author": { "name": "Remotion" },
+  "homepage": "https://github.com/remotion-dev/skills"
+}

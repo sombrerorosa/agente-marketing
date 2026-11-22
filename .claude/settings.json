@@ -1,15 +1,25 @@
 {
   "extraKnownMarketplaces": {
     "agente-marketing": {
-      "source": { "source": "github", "repo": "sombrerorosa/agente-marketing" }
+      "source": {
+        "source": "github",
+        "repo": "sombrerorosa/agente-marketing"
+      }
     }
   },
   "enabledPlugins": {
-    "threejs@agente-marketing": true
+    "threejs@agente-marketing": true,
+    "watch@agente-marketing": true,
+    "hyperframes@agente-marketing": true,
+    "remotion@agente-marketing": true,
+    "chrome-devtools-mcp@agente-marketing": true
   },
   "permissions": {
     "allow": [
       "mcp__claude_ai_Google_Ads_Sombrero__google_ads_create_ad"
     ]
+  },
+  "env": {
+    "HYPERFRAMES_NO_TELEMETRY": "1"
   }
 }

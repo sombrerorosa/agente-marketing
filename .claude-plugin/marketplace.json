@@ -1,6 +1,6 @@
 {
   "name": "agente-marketing",
-  "description": "Plugins de sombrerorosa para Claude: marketing, 3D y más.",
+  "description": "Plugins de sombrerorosa para Claude: marketing, video, 3D y más.",
   "owner": {
     "name": "sombrerorosa"
   },
@@ -9,6 +9,36 @@
       "name": "threejs",
       "source": "./plugins/threejs",
       "description": "Skills de Three.js para crear escenas 3D e interactivas.",
+      "version": "1.0.0"
+    },
+    {
+      "name": "watch",
+      "source": "./plugins/watch",
+      "description": "Claude mira videos: cuadros con tiempo y transcripción (bradautomates/claude-video).",
+      "version": "0.3.2"
+    },
+    {
+      "name": "hyperframes",
+      "source": "./plugins/hyperframes",
+      "description": "Videos hechos con HTML: reels, promos y motion graphics (HeyGen HyperFrames).",
+      "version": "0.9.80"
+    },
+    {
+      "name": "remotion",
+      "source": "./plugins/remotion",
+      "description": "Skills oficiales de Remotion para hacer videos con React.",
+      "version": "1.0.0"
+    },
+    {
+      "name": "chrome-devtools-mcp",
+      "source": "./plugins/chrome-devtools",
+      "description": "Claude maneja Chrome: abre páginas, saca capturas y mide velocidad (sin estadísticas a Google).",
+      "version": "1.13.0"
+    },
+    {
+      "name": "earshot",
+      "source": "./plugins/earshot",
+      "description": "Efectos de sonido generados a pedido para videos y apps.",
       "version": "1.0.0"
     }
   ]

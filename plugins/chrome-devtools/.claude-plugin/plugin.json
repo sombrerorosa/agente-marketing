@@ -1,0 +1,14 @@
+{
+  "name": "chrome-devtools-mcp",
+  "version": "1.13.0",
+  "description": "Chrome DevTools for agents: open pages, take screenshots, inspect the console and network, and analyze performance. Usage statistics to Google are turned off.",
+  "author": { "name": "Chrome DevTools Team" },
+  "homepage": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+  "license": "Apache-2.0",
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["--prefix", "${CLAUDE_PLUGIN_DATA}", "chrome-devtools-mcp@1.13.0", "--no-usage-statistics"]
+    }
+  }
+}
